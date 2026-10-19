@@ -1,8 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type {
-  ContactDto,
-  CreateContactRequest,
-} from '@ishan/contracts';
+import type { ContactDto, CreateContactRequest } from '@ishan/contracts';
 import type { z } from 'zod';
 import type { UpdateContactRequestSchema } from '@ishan/contracts';
 import type { AuthUser } from '../../common/decorators';

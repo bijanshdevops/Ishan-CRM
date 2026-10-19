@@ -99,7 +99,7 @@ export class CustomersIoService {
       const key = h.trim();
       return (CSV_COLUMNS as readonly string[]).includes(key)
         ? (key as (typeof CSV_COLUMNS)[number])
-        : HEADER_ALIASES[normalizeText(key)] ?? HEADER_ALIASES[key];
+        : (HEADER_ALIASES[normalizeText(key)] ?? HEADER_ALIASES[key]);
     });
     if (!cols.includes('name')) {
       throw new BadRequestException({

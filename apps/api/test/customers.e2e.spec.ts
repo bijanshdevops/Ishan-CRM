@@ -115,9 +115,9 @@ describe.skipIf(!run)('customers (database)', () => {
     });
     expect(denied.status).toBe(403);
     expect((await call('GET', '/customers/export', 'cust-sales')).status).toBe(403);
-    expect(
-      (await call('POST', '/customers/import', 'cust-sales', { csv: 'name\nx' })).status,
-    ).toBe(403);
+    expect((await call('POST', '/customers/import', 'cust-sales', { csv: 'name\nx' })).status).toBe(
+      403,
+    );
     expect((await call('POST', '/tags', 'cust-viewer', { name: 'spec-x' })).status).toBe(403);
   });
 
@@ -172,9 +172,9 @@ describe.skipIf(!run)('customers (database)', () => {
     expect(t.status).toBe(201);
     tagId = t.body.id;
     expect((await call('POST', '/tags', 'cust-sales', { name: 'spec-vip' })).status).toBe(409);
-    expect((await call('POST', '/tags', 'cust-sales', { name: 'spec-b', color: 'red' })).status).toBe(
-      400,
-    );
+    expect(
+      (await call('POST', '/tags', 'cust-sales', { name: 'spec-b', color: 'red' })).status,
+    ).toBe(400);
     const set = await call('PUT', `/customers/${customerId}/tags`, 'cust-sales', {
       tagIds: [tagId],
     });
@@ -231,8 +231,12 @@ describe.skipIf(!run)('customers (database)', () => {
     const found = await call('GET', '/customers?q=alpha', 'cust-viewer');
     expect(found.body.items[0].kind).toBe('ORGANIZATION');
     expect(
-      (await call('POST', '/customers/import', 'cust-admin', { csv: 'email\na@b.co', dryRun: true }))
-        .status,
+      (
+        await call('POST', '/customers/import', 'cust-admin', {
+          csv: 'email\na@b.co',
+          dryRun: true,
+        })
+      ).status,
     ).toBe(400);
   });
 

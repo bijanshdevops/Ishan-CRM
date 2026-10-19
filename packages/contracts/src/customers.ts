@@ -56,8 +56,14 @@ export const UpdateCustomerRequestSchema = z
     // Allow clearing optional text fields with null on update.
     nationalId: z.string().trim().max(20).nullable().optional(),
     economicCode: z.string().trim().max(20).nullable().optional(),
-    email: z.union([z.literal(''), EmailSchema]).nullable().optional(),
-    phone: z.union([z.literal(''), PhoneSchema]).nullable().optional(),
+    email: z
+      .union([z.literal(''), EmailSchema])
+      .nullable()
+      .optional(),
+    phone: z
+      .union([z.literal(''), PhoneSchema])
+      .nullable()
+      .optional(),
     website: z.string().trim().max(200).nullable().optional(),
     province: z.string().trim().max(60).nullable().optional(),
     city: z.string().trim().max(60).nullable().optional(),
@@ -102,9 +108,18 @@ export const UpdateContactRequestSchema = z.object({
   firstName: z.string().trim().min(1).max(80).optional(),
   lastName: z.string().trim().min(1).max(80).optional(),
   jobTitle: z.string().trim().max(100).nullable().optional(),
-  email: z.union([z.literal(''), EmailSchema]).nullable().optional(),
-  phone: z.union([z.literal(''), PhoneSchema]).nullable().optional(),
-  mobile: z.union([z.literal(''), PhoneSchema]).nullable().optional(),
+  email: z
+    .union([z.literal(''), EmailSchema])
+    .nullable()
+    .optional(),
+  phone: z
+    .union([z.literal(''), PhoneSchema])
+    .nullable()
+    .optional(),
+  mobile: z
+    .union([z.literal(''), PhoneSchema])
+    .nullable()
+    .optional(),
   isPrimary: z.boolean().optional(),
   notes: z.string().trim().max(2000).nullable().optional(),
 });

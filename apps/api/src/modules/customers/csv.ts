@@ -40,8 +40,6 @@ export function csvCell(value: string | null | undefined): string {
 
 export function toCsv(header: string[], rows: Array<Array<string | null | undefined>>): string {
   return (
-    '﻿' +
-    [header, ...rows].map((r) => r.map((c) => csvCell(c)).join(',')).join('\r\n') +
-    '\r\n'
+    '﻿' + [header, ...rows].map((r) => r.map((c) => csvCell(c)).join(',')).join('\r\n') + '\r\n'
   );
 }

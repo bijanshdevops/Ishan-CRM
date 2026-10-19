@@ -24,7 +24,8 @@ export class TagsService {
     const dup = await this.prisma.tag.findFirst({
       where: { organizationId: orgId, name, ...(exceptId ? { id: { not: exceptId } } : {}) },
     });
-    if (dup) throw new ConflictException({ code: 'TAG_NAME_TAKEN', message: 'نام برچسب تکراری است' });
+    if (dup)
+      throw new ConflictException({ code: 'TAG_NAME_TAKEN', message: 'نام برچسب تکراری است' });
   }
 
   async create(actor: AuthUser, dto: { name: string; color: string }, ip?: string) {
