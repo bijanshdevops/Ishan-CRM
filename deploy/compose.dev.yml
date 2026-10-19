@@ -40,6 +40,11 @@ services:
       PORT: '4000'
       DATABASE_URL: postgresql://ishan:ishan@postgres:5432/ishan?schema=public
       CORS_ORIGINS: http://localhost:3000
+      COOKIE_SECURE: 'false' # dev over http only; keep true behind TLS
+      # DEV-ONLY secrets. Generate real ones: openssl rand -base64 32
+      ENCRYPTION_KEY: 'ZGV2LW9ubHktZW5jcnlwdGlvbi1rZXktMzItYnl0ZXM='
+      BOOTSTRAP_ADMIN_EMAIL: admin@ishan.local
+      BOOTSTRAP_ADMIN_PASSWORD: 'ChangeMe-Dev-2026!'
     ports: ['4000:4000']
     depends_on:
       migrate: { condition: service_completed_successfully }
@@ -49,7 +54,9 @@ services:
     build:
       context: ..
       dockerfile: apps/web/Dockerfile
-      args: { NEXT_PUBLIC_API_URL: 'http://localhost:4000/api/v1' }
+      args:
+        NEXT_PUBLIC_API_URL: /api/v1
+        API_INTERNAL_URL: http://api:4000
     ports: ['3000:3000']
     depends_on: [api]
 

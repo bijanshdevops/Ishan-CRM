@@ -16,7 +16,11 @@
     "@ishan/ui": "workspace:*",
     "next": "16.4.2",
     "react": "19.3.1",
-    "react-dom": "19.3.1"
+    "react-dom": "19.3.1",
+    "@ishan/contracts": "workspace:*",
+    "@tanstack/react-query": "5.104.5",
+    "qrcode": "1.5.4",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@ishan/config": "workspace:*",
@@ -26,6 +30,7 @@
     "@types/react-dom": "19.2.2",
     "tailwindcss": "4.3.3",
     "typescript": "5.9.3",
-    "vitest": "3.2.4"
+    "vitest": "3.2.4",
+    "@types/qrcode": "1.5.6"
   }
 }

@@ -35,3 +35,17 @@ export function formatMoney(rials: bigint, unit: CurrencyUnit = 'rial'): string 
   const amount = unit === 'toman' ? rials / 10n : rials;
   return `${NUMBER.format(amount)} ${unit === 'toman' ? 'تومان' : 'ریال'}`;
 }
+
+const JALALI_DATETIME = new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  timeZone: 'Asia/Tehran',
+});
+
+/** Jalali date and local (Tehran) time, e.g. ۱۴۰۵/۰۷/۲۷، ۲۱:۳۰. */
+export function formatJalaliDateTime(date: Date | string | number): string {
+  return JALALI_DATETIME.format(new Date(date));
+}

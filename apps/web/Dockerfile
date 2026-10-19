@@ -15,6 +15,8 @@ COPY packages packages
 COPY apps/web apps/web
 ARG NEXT_PUBLIC_API_URL=/api/v1
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ARG API_INTERNAL_URL=http://api:4000
+ENV API_INTERNAL_URL=$API_INTERNAL_URL
 RUN pnpm --filter @ishan/i18n build && pnpm --filter @ishan/web build
 
 FROM node:22-alpine AS runner
