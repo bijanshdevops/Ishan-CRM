@@ -12,6 +12,7 @@ import {
   type TagDto,
 } from '@ishan/contracts';
 import { fa, formatJalaliDate } from '@ishan/i18n';
+import { CustomerActivities } from '@/components/customer-timeline';
 import { CustomerFormDialog } from '@/components/customer-form';
 import { useToast } from '@/components/toast';
 import {
@@ -241,6 +242,11 @@ export default function CustomerPage() {
             )}
           </Card>
         </div>
+        {can(PERMISSIONS.ACTIVITIES_READ) ? (
+          <div className="flex flex-col gap-4 lg:col-span-3">
+            <CustomerActivities customerId={c.id} customerName={c.name} />
+          </div>
+        ) : null}
       </div>
       {editing ? (
         <CustomerFormDialog

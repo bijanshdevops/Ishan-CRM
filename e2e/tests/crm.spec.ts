@@ -109,12 +109,71 @@ test.describe.serial('Ishan CRM end-to-end', () => {
     await expect(won.getByRole('button', { name: `فرصت آزمون ${run}` })).toBeVisible();
   });
 
+  test('activities: note, task and call on the customer file, then calendar and reminders', async ({
+    page,
+  }) => {
+    await loginAdmin(page);
+    await page.goto('/customers');
+    await page.getByPlaceholder(fa.customers.searchPlaceholder).fill(`آزمون ${run}`);
+    await page.getByRole('button', { name: fa.common.search, exact: true }).click();
+    await page.getByRole('link', { name: `شرکت آزمون ${run}` }).click();
+    await expect(page.getByRole('heading', { name: `شرکت آزمون ${run}` })).toBeVisible();
+
+    // note → appears in the interaction history
+    await page.getByRole('button', { name: fa.activities.addNote }).click();
+    const note = page.getByRole('dialog');
+    await note.getByLabel(fa.activities.noteText, { exact: true }).fill(`یادداشت آزمون ${run}`);
+    await note.getByRole('button', { name: fa.common.save }).click();
+    await expect(page.getByText(fa.activities.created)).toBeVisible();
+    await expect(page.getByText(`یادداشت آزمون ${run}`)).toBeVisible();
+
+    // logged call with an outcome → history
+    await page.getByRole('button', { name: fa.activities.addCall }).click();
+    const call = page.getByRole('dialog');
+    await call.getByLabel(fa.activities.activityTitle, { exact: true }).fill(`تماس آزمون ${run}`);
+    await call.getByLabel(fa.activities.outcome, { exact: true }).fill(`نتیجه ${run}`);
+    await call.getByRole('button', { name: fa.common.save }).click();
+    await expect(page.getByText(`نتیجه ${run}`)).toBeVisible();
+
+    // planned task (Jalali date/time defaults to the next full hour) → upcoming list
+    await page.getByRole('button', { name: fa.activities.addTask }).click();
+    const task = page.getByRole('dialog');
+    await task.getByLabel(fa.activities.activityTitle, { exact: true }).fill(`وظیفه آزمون ${run}`);
+    await expect(task.getByLabel(fa.activities.month)).not.toHaveValue('');
+    await task.getByRole('button', { name: fa.common.save }).click();
+    const item = page.getByRole('listitem').filter({ hasText: `وظیفه آزمون ${run}` });
+    await expect(item).toBeVisible();
+
+    // completing moves it into the history
+    await item.getByRole('button', { name: fa.activities.complete, exact: true }).click();
+    await expect(page.getByText(fa.activities.completed)).toBeVisible();
+
+    // the task list shows it under "done"
+    await page.goto('/activities');
+    await page.getByRole('tab', { name: fa.activities.tabs.done }).click();
+    await expect(page.getByText(`وظیفه آزمون ${run}`)).toBeVisible();
+    await a11y(page, '/activities');
+
+    // calendar renders a Jalali month grid
+    await page.goto('/calendar');
+    await expect(page.getByRole('table')).toBeVisible();
+    await a11y(page, '/calendar');
+
+    // reminder bell opens and shows the empty state
+    await page
+      .getByRole('button', { name: new RegExp(fa.activities.reminders) })
+      .first()
+      .click();
+    await expect(page.getByText(fa.activities.remindersEmpty)).toBeVisible();
+  });
+
   test('admin can open users and the audit log, then log out', async ({ page }) => {
     await loginAdmin(page);
     await page.goto('/users');
     await expect(page.getByRole('heading', { name: fa.users.title })).toBeVisible();
     await page.goto('/audit');
     await expect(page.getByText('deal.stage_changed').first()).toBeVisible();
+    await expect(page.getByText('activity.completed').first()).toBeVisible();
     await page.getByRole('button', { name: fa.nav.logout }).first().click();
     await expect(page).toHaveURL(/\/login/);
   });

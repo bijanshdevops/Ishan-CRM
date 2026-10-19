@@ -6,6 +6,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { PERMISSIONS } from '@ishan/contracts';
 import { fa } from '@ishan/i18n';
 import { useAuth } from '@/lib/auth';
+import { ReminderBell } from './reminder-bell';
 import { Button, Skeleton } from './ui';
 
 const NAV = [
@@ -13,6 +14,8 @@ const NAV = [
   { href: '/customers', label: fa.nav.customers, permission: PERMISSIONS.CUSTOMERS_READ },
   { href: '/leads', label: fa.nav.leads, permission: PERMISSIONS.LEADS_READ },
   { href: '/deals', label: fa.nav.deals, permission: PERMISSIONS.DEALS_READ },
+  { href: '/activities', label: fa.nav.activities, permission: PERMISSIONS.ACTIVITIES_READ },
+  { href: '/calendar', label: fa.nav.calendar, permission: PERMISSIONS.ACTIVITIES_READ },
   { href: '/users', label: fa.nav.users, permission: PERMISSIONS.USERS_READ },
   { href: '/teams', label: fa.nav.teams, permission: PERMISSIONS.TEAMS_READ },
   { href: '/roles', label: fa.nav.roles, permission: PERMISSIONS.ROLES_READ },
@@ -82,9 +85,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       <aside className="border-b border-[var(--color-border)] bg-[var(--color-surface)] p-4 md:border-b-0 md:border-e">
         <div className="mb-4 flex items-center justify-between md:mb-6">
           <span className="text-xl font-bold text-[var(--color-brand)]">{fa.app.name}</span>
-          <Button variant="ghost" onClick={toggle} aria-label={fa.nav.theme}>
-            {theme === 'dark' ? '☀' : '☾'}
-          </Button>
+          <div className="flex items-center">
+            <ReminderBell />
+            <Button variant="ghost" onClick={toggle} aria-label={fa.nav.theme}>
+              {theme === 'dark' ? '☀' : '☾'}
+            </Button>
+          </div>
         </div>
         <nav aria-label="ناوبری اصلی" className="flex gap-1 overflow-x-auto md:flex-col">
           {items.map((n) => {
