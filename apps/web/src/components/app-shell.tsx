@@ -11,6 +11,8 @@ import { Button, Skeleton } from './ui';
 const NAV = [
   { href: '/', label: fa.nav.home, permission: null },
   { href: '/customers', label: fa.nav.customers, permission: PERMISSIONS.CUSTOMERS_READ },
+  { href: '/leads', label: fa.nav.leads, permission: PERMISSIONS.LEADS_READ },
+  { href: '/deals', label: fa.nav.deals, permission: PERMISSIONS.DEALS_READ },
   { href: '/users', label: fa.nav.users, permission: PERMISSIONS.USERS_READ },
   { href: '/teams', label: fa.nav.teams, permission: PERMISSIONS.TEAMS_READ },
   { href: '/roles', label: fa.nav.roles, permission: PERMISSIONS.ROLES_READ },
