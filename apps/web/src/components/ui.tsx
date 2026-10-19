@@ -103,9 +103,9 @@ export function Badge({
   const tones = {
     neutral: 'bg-[var(--color-surface-2)] text-[var(--color-text-muted)]',
     success:
-      'bg-[color-mix(in_srgb,var(--color-success)_16%,transparent)] text-[var(--color-success)]',
+      'bg-[color-mix(in_srgb,var(--color-success)_16%,transparent)] text-[color-mix(in_srgb,var(--color-success)_55%,var(--color-text))]',
     danger:
-      'bg-[color-mix(in_srgb,var(--color-danger)_16%,transparent)] text-[var(--color-danger)]',
+      'bg-[color-mix(in_srgb,var(--color-danger)_16%,transparent)] text-[color-mix(in_srgb,var(--color-danger)_65%,var(--color-text))]',
     brand: 'bg-[color-mix(in_srgb,var(--color-brand)_16%,transparent)] text-[var(--color-brand)]',
   };
   return (
