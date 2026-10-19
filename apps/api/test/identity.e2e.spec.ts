@@ -18,6 +18,10 @@ interface Res {
   cookie?: string;
 }
 
+it.runIf(process.env.CI === 'true' && !run)('database tests must not be skipped in CI', () => {
+  throw new Error('RUN_DB_TESTS=1 is required in CI');
+});
+
 describe.skipIf(!run)('identity & access (database)', () => {
   let app: NestFastifyApplication;
   let prisma: any;
