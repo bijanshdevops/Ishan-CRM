@@ -40,3 +40,10 @@ export async function api<T = unknown>(
   }
   return data as T;
 }
+
+/** Fetches a binary/text resource (e.g. CSV export) with credentials. */
+export async function apiBlob(path: string): Promise<Blob> {
+  const res = await fetch(`${apiBaseUrl()}${path}`, { credentials: 'include' });
+  if (!res.ok) throw new ApiClientError(res.status, 'ERROR', 'خطایی رخ داد');
+  return res.blob();
+}
