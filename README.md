@@ -53,4 +53,4 @@ docs            ADR و مستندات امنیتی
 
 ## پورت‌ها در اجرای محلی
 
-پیش‌فرض‌ها: وب ۳۰۰۰، API ۴۰۰۰، PostgreSQL ۵۴۳۳. اگر پورتی اشغال بود، پیش از `docker compose up` متغیرهای `WEB_PORT`، `API_PORT` یا `POSTGRES_PORT` را تنظیم کنید (مثلاً `set WEB_PORT=3100` در CMD).
+پیش‌فرض‌ها: وب ۳۰۰۰ و API ۴۰۰۰. PostgreSQL و Redis روی میزبان باز نمی‌شوند (برای دسترسی به PostgreSQL فایل `deploy/compose.db-port.yml` را هم با `-f` اضافه کنید). اگر پورتی اشغال بود، پیش از `docker compose up` متغیرهای `WEB_PORT` یا `API_PORT` را تنظیم کنید (مثلاً `set WEB_PORT=3100` در CMD).

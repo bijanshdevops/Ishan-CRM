@@ -8,8 +8,9 @@ services:
       POSTGRES_USER: ishan
       POSTGRES_PASSWORD: ishan
       POSTGRES_DB: ishan
-    # Host port is configurable (default 5433) so it never collides with a local PostgreSQL.
-    ports: ['${POSTGRES_PORT:-5433}:5432']
+    # Not published to the host by default (only the api/migrate containers need it), so it
+    # can never collide with another PostgreSQL. For host access run with
+    # `-f deploy/compose.dev.yml -f deploy/compose.db-port.yml` (POSTGRES_PORT, default 55432).
     volumes: ['pgdata:/var/lib/postgresql/data']
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U ishan -d ishan']
