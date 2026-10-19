@@ -44,6 +44,8 @@ export function ActivityItem({
   const [editing, setEditing] = useState(false);
   const [completing, setCompleting] = useState(false);
 
+  // Toast in the hook-level callback: the row unmounts once the lists refresh, and
+  // per-call mutate callbacks are dropped for unmounted components.
   const act = useMutation({
     mutationFn: ({
       path,
@@ -51,16 +53,18 @@ export function ActivityItem({
       body,
     }: {
       path: string;
+      ok: string;
       method?: string;
       body?: unknown;
     }) => api(`/activities/${a.id}${path}`, { method, body }),
-    onSuccess: async () => {
+    onSuccess: async (_d, v) => {
+      toast(v.ok);
       await refresh();
     },
     onError: (e) => toast(msg(e), 'error'),
   });
   const run = (path: string, ok: string, method?: string, body?: unknown) =>
-    act.mutate({ path, method, body }, { onSuccess: () => toast(ok) });
+    act.mutate({ path, ok, method, body });
 
   const mine = canModify(a);
   const planned = a.status === 'PLANNED';
