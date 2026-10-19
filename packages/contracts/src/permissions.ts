@@ -20,6 +20,11 @@ export const PERMISSIONS = {
   DEALS_WRITE: 'deals.write',
   DEALS_DELETE: 'deals.delete',
   PIPELINE_MANAGE: 'pipeline.manage',
+  ACTIVITIES_READ: 'activities.read',
+  ACTIVITIES_WRITE: 'activities.write',
+  ACTIVITIES_DELETE: 'activities.delete',
+  /** Edit/complete/delete activities owned by other users. */
+  ACTIVITIES_MANAGE_ALL: 'activities.manage_all',
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -66,6 +71,10 @@ export const SYSTEM_ROLES: SystemRoleDefinition[] = [
       PERMISSIONS.DEALS_WRITE,
       PERMISSIONS.DEALS_DELETE,
       PERMISSIONS.PIPELINE_MANAGE,
+      PERMISSIONS.ACTIVITIES_READ,
+      PERMISSIONS.ACTIVITIES_WRITE,
+      PERMISSIONS.ACTIVITIES_DELETE,
+      PERMISSIONS.ACTIVITIES_MANAGE_ALL,
     ],
   },
   {
@@ -82,12 +91,19 @@ export const SYSTEM_ROLES: SystemRoleDefinition[] = [
       PERMISSIONS.LEADS_CONVERT,
       PERMISSIONS.DEALS_READ,
       PERMISSIONS.DEALS_WRITE,
+      PERMISSIONS.ACTIVITIES_READ,
+      PERMISSIONS.ACTIVITIES_WRITE,
     ],
   },
   {
     key: 'viewer',
     name: 'مشاهده‌گر',
     description: 'فقط مشاهده',
-    permissions: [PERMISSIONS.CUSTOMERS_READ, PERMISSIONS.LEADS_READ, PERMISSIONS.DEALS_READ],
+    permissions: [
+      PERMISSIONS.CUSTOMERS_READ,
+      PERMISSIONS.LEADS_READ,
+      PERMISSIONS.DEALS_READ,
+      PERMISSIONS.ACTIVITIES_READ,
+    ],
   },
 ];

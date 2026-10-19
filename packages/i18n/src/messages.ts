@@ -255,6 +255,10 @@ export const PERMISSION_LABELS: Record<string, string> = {
   'deals.write': 'ویرایش فرصت‌ها',
   'deals.delete': 'حذف فرصت‌ها',
   'pipeline.manage': 'مدیریت مراحل قیف',
+  'activities.read': 'مشاهده فعالیت‌ها',
+  'activities.write': 'ثبت و ویرایش فعالیت‌های خود',
+  'activities.delete': 'حذف فعالیت‌ها',
+  'activities.manage_all': 'مدیریت فعالیت‌های همه کاربران',
 };
 
 export type Messages = typeof fa;

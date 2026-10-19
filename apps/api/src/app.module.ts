@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import { loadConfig } from './config';
 import { InfraModule } from './infra/infra.module';
+import { ActivitiesModule } from './modules/activities/activities.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CustomersModule } from './modules/customers/customers.module';
@@ -37,6 +38,7 @@ const config = loadConfig();
     TeamsModule,
     CustomersModule,
     SalesModule,
+    ActivitiesModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
 })
