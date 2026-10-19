@@ -1,0 +1,22 @@
+@import 'tailwindcss';
+@import '@ishan/ui/tokens.css';
+
+@theme inline {
+  --font-sans: var(--font-sans);
+  --color-bg: var(--color-bg);
+  --color-surface: var(--color-surface);
+  --color-border: var(--color-border);
+  --color-text: var(--color-text);
+  --color-brand: var(--color-brand);
+}
+
+html {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}

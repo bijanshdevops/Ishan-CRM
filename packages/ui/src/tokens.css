@@ -1,0 +1,59 @@
+/* Ishan design tokens — single source of truth for colour, type, space, radius, motion. */
+:root {
+  --font-sans: 'Vazirmatn', system-ui, 'Segoe UI', Tahoma, sans-serif;
+
+  --color-bg: #f7f6f3;
+  --color-surface: #ffffff;
+  --color-surface-2: #efede8;
+  --color-border: #dcd8cf;
+  --color-text: #1b1a17;
+  --color-text-muted: #5f5b52;
+  --color-brand: #0f5c4d;
+  --color-brand-contrast: #ffffff;
+  --color-accent: #c2742b;
+  --color-success: #1d7a4a;
+  --color-warning: #a36a00;
+  --color-danger: #b3322a;
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--color-brand) 45%, transparent);
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.75rem;
+
+  --motion-fast: 120ms;
+  --motion-base: 200ms;
+}
+
+:root[data-theme='dark'] {
+  --color-bg: #121512;
+  --color-surface: #1a1e1a;
+  --color-surface-2: #232823;
+  --color-border: #343a33;
+  --color-text: #eeece6;
+  --color-text-muted: #a7a398;
+  --color-brand: #4cc2a6;
+  --color-brand-contrast: #0b1512;
+  --color-accent: #e59a55;
+  --color-success: #5ccb8d;
+  --color-warning: #e0b04a;
+  --color-danger: #f0766d;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0ms;
+    --motion-base: 0ms;
+  }
+}

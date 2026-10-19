@@ -1,0 +1,57 @@
+# Local development stack. Start with: docker compose -f deploy/compose.dev.yml up --build
+name: ishan-dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ishan
+      POSTGRES_PASSWORD: ishan
+      POSTGRES_DB: ishan
+    ports: ['5432:5432']
+    volumes: ['pgdata:/var/lib/postgresql/data']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ishan -d ishan']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports: ['6379:6379']
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    build: { context: .., dockerfile: apps/api/Dockerfile, target: migrate }
+    environment:
+      DATABASE_URL: postgresql://ishan:ishan@postgres:5432/ishan?schema=public
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: 'no'
+
+  api:
+    build: { context: .., dockerfile: apps/api/Dockerfile, target: runner }
+    environment:
+      NODE_ENV: production
+      PORT: '4000'
+      DATABASE_URL: postgresql://ishan:ishan@postgres:5432/ishan?schema=public
+      CORS_ORIGINS: http://localhost:3000
+    ports: ['4000:4000']
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+      args: { NEXT_PUBLIC_API_URL: 'http://localhost:4000/api/v1' }
+    ports: ['3000:3000']
+    depends_on: [api]
+
+volumes:
+  pgdata:
