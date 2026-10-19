@@ -21,6 +21,13 @@ enum TeamRole {
   @@map("team_role")
 }
 
+enum CustomerKind {
+  PERSON
+  ORGANIZATION
+
+  @@map("customer_kind")
+}
+
 /// Tenant root. Single-tenant deployment today; every domain table carries organization_id.
 model Organization {
   id        String    @id @default(uuid(7)) @db.Uuid
@@ -33,6 +40,9 @@ model Organization {
   users     User[]
   teams     Team[]
   auditLogs AuditLog[]
+  customers Customer[]
+  contacts  Contact[]
+  tags      Tag[]
 
   @@map("organizations")
 }
@@ -79,6 +89,7 @@ model User {
   role         Role         @relation(fields: [roleId], references: [id])
   sessions     Session[]
   memberships  TeamMember[]
+  ownedCustomers Customer[]
 
   @@unique([organizationId, email])
   @@index([roleId])
@@ -154,4 +165,89 @@ model AuditLog {
   @@index([organizationId, createdAt(sort: Desc)])
   @@index([entityType, entityId])
   @@map("audit_logs")
+}
+
+model Customer {
+  id             String       @id @default(uuid(7)) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  kind           CustomerKind
+  name           String
+  nationalId     String?      @map("national_id")
+  economicCode   String?      @map("economic_code")
+  email          String?
+  phone          String?
+  website        String?
+  province       String?
+  city           String?
+  address        String?
+  notes          String?
+  ownerId        String?      @map("owner_id") @db.Uuid
+  createdById    String?      @map("created_by_id") @db.Uuid
+  /// Normalized (Persian letters/digits unified, lowercased) text used by search.
+  searchText     String       @default("") @map("search_text")
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  owner        User?         @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  contacts     Contact[]
+  tags         CustomerTag[]
+
+  @@index([organizationId, id(sort: Desc)])
+  @@index([organizationId, kind])
+  @@index([ownerId])
+  @@index([organizationId, email])
+  @@map("customers")
+}
+
+model Contact {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  customerId     String?   @map("customer_id") @db.Uuid
+  firstName      String    @map("first_name")
+  lastName       String    @map("last_name")
+  jobTitle       String?   @map("job_title")
+  email          String?
+  phone          String?
+  mobile         String?
+  isPrimary      Boolean   @default(false) @map("is_primary")
+  notes          String?
+  searchText     String    @default("") @map("search_text")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  customer     Customer?    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([organizationId, id(sort: Desc)])
+  @@map("contacts")
+}
+
+model Tag {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  name           String
+  color          String   @default("#6366f1")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  customers    CustomerTag[]
+
+  @@unique([organizationId, name])
+  @@map("tags")
+}
+
+model CustomerTag {
+  customerId String @map("customer_id") @db.Uuid
+  tagId      String @map("tag_id") @db.Uuid
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  tag      Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([customerId, tagId])
+  @@index([tagId])
+  @@map("customer_tags")
 }

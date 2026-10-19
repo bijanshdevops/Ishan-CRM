@@ -7,6 +7,7 @@ import { loadConfig } from './config';
 import { InfraModule } from './infra/infra.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { CustomersModule } from './modules/customers/customers.module';
 import { BootstrapModule } from './modules/bootstrap/bootstrap.module';
 import { HealthModule } from './modules/health/health.module';
 import { RolesModule } from './modules/roles/roles.module';
@@ -33,6 +34,7 @@ const config = loadConfig();
     UsersModule,
     RolesModule,
     TeamsModule,
+    CustomersModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
 })

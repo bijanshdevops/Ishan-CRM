@@ -7,6 +7,12 @@ export const PERMISSIONS = {
   ROLES_READ: 'roles.read',
   ROLES_WRITE: 'roles.write',
   AUDIT_READ: 'audit.read',
+  CUSTOMERS_READ: 'customers.read',
+  CUSTOMERS_WRITE: 'customers.write',
+  CUSTOMERS_DELETE: 'customers.delete',
+  CUSTOMERS_IMPORT: 'customers.import',
+  CUSTOMERS_EXPORT: 'customers.export',
+  TAGS_WRITE: 'tags.write',
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -40,18 +46,29 @@ export const SYSTEM_ROLES: SystemRoleDefinition[] = [
       PERMISSIONS.TEAMS_WRITE,
       PERMISSIONS.ROLES_READ,
       PERMISSIONS.AUDIT_READ,
+      PERMISSIONS.CUSTOMERS_READ,
+      PERMISSIONS.CUSTOMERS_WRITE,
+      PERMISSIONS.CUSTOMERS_DELETE,
+      PERMISSIONS.CUSTOMERS_IMPORT,
+      PERMISSIONS.CUSTOMERS_EXPORT,
+      PERMISSIONS.TAGS_WRITE,
     ],
   },
   {
     key: 'sales',
     name: 'کارشناس فروش',
-    description: 'دسترسی عملیاتی به داده‌های فروش (در فازهای بعد)',
-    permissions: [PERMISSIONS.TEAMS_READ],
+    description: 'کار با مشتریان و مخاطبان',
+    permissions: [
+      PERMISSIONS.TEAMS_READ,
+      PERMISSIONS.CUSTOMERS_READ,
+      PERMISSIONS.CUSTOMERS_WRITE,
+      PERMISSIONS.TAGS_WRITE,
+    ],
   },
   {
     key: 'viewer',
     name: 'مشاهده‌گر',
     description: 'فقط مشاهده',
-    permissions: [],
+    permissions: [PERMISSIONS.CUSTOMERS_READ],
   },
 ];
