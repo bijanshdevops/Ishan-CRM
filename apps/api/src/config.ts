@@ -32,6 +32,7 @@ const EnvSchema = z.object({
     .default(480),
   SESSION_ABSOLUTE_DAYS: z.coerce.number().int().min(1).max(90).default(14),
   LOGIN_MAX_FAILURES: z.coerce.number().int().min(3).max(20).default(5),
+  LOGIN_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).default(20),
   LOGIN_LOCK_MINUTES: z.coerce.number().int().min(1).max(1440).default(15),
   BOOTSTRAP_ORG_NAME: z.string().min(1).default('سازمان من'),
   BOOTSTRAP_ADMIN_EMAIL: z.string().email().optional(),

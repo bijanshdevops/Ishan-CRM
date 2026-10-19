@@ -41,7 +41,7 @@ import { SessionService } from './session.service';
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  private readonly loginLimiter = new RateLimiter(20, 60_000);
+  private readonly loginLimiter: RateLimiter;
   private readonly secure: boolean;
 
   constructor(
@@ -49,6 +49,7 @@ export class AuthController {
     private readonly sessions: SessionService,
     @Inject(APP_CONFIG) config: AppConfig,
   ) {
+    this.loginLimiter = new RateLimiter(config.LOGIN_RATE_LIMIT_PER_MINUTE, 60_000);
     this.secure = config.COOKIE_SECURE ?? config.NODE_ENV === 'production';
   }
 
