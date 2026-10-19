@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
-import { PasswordSchema, SYSTEM_ROLES } from '@ishan/contracts';
+import { DEFAULT_STAGES, PasswordSchema, SYSTEM_ROLES } from '@ishan/contracts';
 import { APP_CONFIG, type AppConfig } from '../../config';
 import { PrismaService } from '../../infra/prisma.service';
 import { PasswordService } from '../auth/password.service';
@@ -52,6 +52,14 @@ export class BootstrapService implements OnApplicationBootstrap {
           isSystem: true,
           permissions: def.permissions,
         },
+      });
+    }
+
+    // Default sales pipeline (configuration, editable by admins) - only when none exists.
+    const stageCount = await this.prisma.pipelineStage.count({ where: { organizationId: org.id } });
+    if (stageCount === 0) {
+      await this.prisma.pipelineStage.createMany({
+        data: DEFAULT_STAGES.map((s, position) => ({ organizationId: org.id, position, ...s })),
       });
     }
 

@@ -28,6 +28,24 @@ enum CustomerKind {
   @@map("customer_kind")
 }
 
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  DISQUALIFIED
+  CONVERTED
+
+  @@map("lead_status")
+}
+
+enum StageKind {
+  OPEN
+  WON
+  LOST
+
+  @@map("stage_kind")
+}
+
 /// Tenant root. Single-tenant deployment today; every domain table carries organization_id.
 model Organization {
   id        String    @id @default(uuid(7)) @db.Uuid
@@ -43,6 +61,9 @@ model Organization {
   customers Customer[]
   contacts  Contact[]
   tags      Tag[]
+  leads     Lead[]
+  stages    PipelineStage[]
+  deals     Deal[]
 
   @@map("organizations")
 }
@@ -90,6 +111,8 @@ model User {
   sessions     Session[]
   memberships  TeamMember[]
   ownedCustomers Customer[]
+  ownedLeads     Lead[]
+  ownedDeals     Deal[]
 
   @@unique([organizationId, email])
   @@index([roleId])
@@ -193,6 +216,8 @@ model Customer {
   owner        User?         @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   contacts     Contact[]
   tags         CustomerTag[]
+  deals        Deal[]
+  leads        Lead[]
 
   @@index([organizationId, id(sort: Desc)])
   @@index([organizationId, kind])
@@ -220,6 +245,7 @@ model Contact {
 
   organization Organization @relation(fields: [organizationId], references: [id])
   customer     Customer?    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  deals        Deal[]
 
   @@index([customerId])
   @@index([organizationId, id(sort: Desc)])
@@ -250,4 +276,99 @@ model CustomerTag {
   @@id([customerId, tagId])
   @@index([tagId])
   @@map("customer_tags")
+}
+
+model Lead {
+  id                  String     @id @default(uuid(7)) @db.Uuid
+  organizationId      String     @map("organization_id") @db.Uuid
+  name                String
+  company             String?
+  email               String?
+  phone               String?
+  source              String?
+  status              LeadStatus @default(NEW)
+  ownerId             String?    @map("owner_id") @db.Uuid
+  createdById         String?    @map("created_by_id") @db.Uuid
+  notes               String?
+  disqualifyReason    String?    @map("disqualify_reason")
+  convertedAt         DateTime?  @map("converted_at") @db.Timestamptz(6)
+  convertedCustomerId String?    @map("converted_customer_id") @db.Uuid
+  convertedDealId     String?    @map("converted_deal_id") @db.Uuid
+  searchText          String     @default("") @map("search_text")
+  createdAt           DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt           DateTime?  @map("deleted_at") @db.Timestamptz(6)
+
+  organization      Organization @relation(fields: [organizationId], references: [id])
+  owner             User?        @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  convertedCustomer Customer?    @relation(fields: [convertedCustomerId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, id(sort: Desc)])
+  @@index([organizationId, status])
+  @@index([ownerId])
+  @@map("leads")
+}
+
+model PipelineStage {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  name           String
+  position       Int
+  probability    Int       @default(0)
+  kind           StageKind @default(OPEN)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  deals        Deal[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, position])
+  @@map("pipeline_stages")
+}
+
+model Deal {
+  id                String    @id @default(uuid(7)) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  title             String
+  customerId        String    @map("customer_id") @db.Uuid
+  contactId         String?   @map("contact_id") @db.Uuid
+  stageId           String    @map("stage_id") @db.Uuid
+  /// Integer rials.
+  amount            BigInt    @default(0)
+  expectedCloseDate DateTime? @map("expected_close_date") @db.Date
+  ownerId           String?   @map("owner_id") @db.Uuid
+  createdById       String?   @map("created_by_id") @db.Uuid
+  notes             String?
+  lostReason        String?   @map("lost_reason")
+  closedAt          DateTime? @map("closed_at") @db.Timestamptz(6)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization    @relation(fields: [organizationId], references: [id])
+  customer     Customer        @relation(fields: [customerId], references: [id])
+  contact      Contact?        @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  stage        PipelineStage   @relation(fields: [stageId], references: [id])
+  owner        User?           @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  events       DealStageEvent[]
+
+  @@index([organizationId, id(sort: Desc)])
+  @@index([organizationId, stageId])
+  @@index([customerId])
+  @@index([ownerId])
+  @@map("deals")
+}
+
+model DealStageEvent {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  dealId      String   @map("deal_id") @db.Uuid
+  fromStageId String?  @map("from_stage_id") @db.Uuid
+  toStageId   String   @map("to_stage_id") @db.Uuid
+  actorId     String?  @map("actor_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId])
+  @@map("deal_stage_events")
 }

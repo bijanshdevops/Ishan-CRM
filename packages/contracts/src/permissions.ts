@@ -13,6 +13,13 @@ export const PERMISSIONS = {
   CUSTOMERS_IMPORT: 'customers.import',
   CUSTOMERS_EXPORT: 'customers.export',
   TAGS_WRITE: 'tags.write',
+  LEADS_READ: 'leads.read',
+  LEADS_WRITE: 'leads.write',
+  LEADS_CONVERT: 'leads.convert',
+  DEALS_READ: 'deals.read',
+  DEALS_WRITE: 'deals.write',
+  DEALS_DELETE: 'deals.delete',
+  PIPELINE_MANAGE: 'pipeline.manage',
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -52,6 +59,13 @@ export const SYSTEM_ROLES: SystemRoleDefinition[] = [
       PERMISSIONS.CUSTOMERS_IMPORT,
       PERMISSIONS.CUSTOMERS_EXPORT,
       PERMISSIONS.TAGS_WRITE,
+      PERMISSIONS.LEADS_READ,
+      PERMISSIONS.LEADS_WRITE,
+      PERMISSIONS.LEADS_CONVERT,
+      PERMISSIONS.DEALS_READ,
+      PERMISSIONS.DEALS_WRITE,
+      PERMISSIONS.DEALS_DELETE,
+      PERMISSIONS.PIPELINE_MANAGE,
     ],
   },
   {
@@ -63,12 +77,17 @@ export const SYSTEM_ROLES: SystemRoleDefinition[] = [
       PERMISSIONS.CUSTOMERS_READ,
       PERMISSIONS.CUSTOMERS_WRITE,
       PERMISSIONS.TAGS_WRITE,
+      PERMISSIONS.LEADS_READ,
+      PERMISSIONS.LEADS_WRITE,
+      PERMISSIONS.LEADS_CONVERT,
+      PERMISSIONS.DEALS_READ,
+      PERMISSIONS.DEALS_WRITE,
     ],
   },
   {
     key: 'viewer',
     name: 'مشاهده‌گر',
     description: 'فقط مشاهده',
-    permissions: [PERMISSIONS.CUSTOMERS_READ],
+    permissions: [PERMISSIONS.CUSTOMERS_READ, PERMISSIONS.LEADS_READ, PERMISSIONS.DEALS_READ],
   },
 ];

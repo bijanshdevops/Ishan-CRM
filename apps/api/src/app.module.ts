@@ -12,6 +12,7 @@ import { BootstrapModule } from './modules/bootstrap/bootstrap.module';
 import { HealthModule } from './modules/health/health.module';
 import { RolesModule } from './modules/roles/roles.module';
 import { TeamsModule } from './modules/teams/teams.module';
+import { SalesModule } from './modules/sales/sales.module';
 import { UsersModule } from './modules/users/users.module';
 
 const config = loadConfig();
@@ -35,6 +36,7 @@ const config = loadConfig();
     RolesModule,
     TeamsModule,
     CustomersModule,
+    SalesModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
 })

@@ -5,3 +5,4 @@ export * from './permissions';
 export * from './identity';
 export * from './text';
 export * from './customers';
+export * from './sales';
