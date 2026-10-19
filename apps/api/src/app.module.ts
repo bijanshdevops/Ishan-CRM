@@ -5,7 +5,13 @@ import { randomUUID } from 'node:crypto';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import { loadConfig } from './config';
 import { InfraModule } from './infra/infra.module';
+import { AuditModule } from './modules/audit/audit.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { BootstrapModule } from './modules/bootstrap/bootstrap.module';
 import { HealthModule } from './modules/health/health.module';
+import { RolesModule } from './modules/roles/roles.module';
+import { TeamsModule } from './modules/teams/teams.module';
+import { UsersModule } from './modules/users/users.module';
 
 const config = loadConfig();
 
@@ -20,7 +26,13 @@ const config = loadConfig();
       },
     }),
     InfraModule,
+    AuditModule,
+    AuthModule,
+    BootstrapModule,
     HealthModule,
+    UsersModule,
+    RolesModule,
+    TeamsModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
 })
