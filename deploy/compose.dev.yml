@@ -8,7 +8,8 @@ services:
       POSTGRES_USER: ishan
       POSTGRES_PASSWORD: ishan
       POSTGRES_DB: ishan
-    ports: ['5432:5432']
+    # Host port is configurable (default 5433) so it never collides with a local PostgreSQL.
+    ports: ['${POSTGRES_PORT:-5433}:5432']
     volumes: ['pgdata:/var/lib/postgresql/data']
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U ishan -d ishan']
@@ -18,7 +19,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    ports: ['6379:6379']
+    # Not published to the host: only other containers use it.
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
@@ -39,13 +40,13 @@ services:
       NODE_ENV: production
       PORT: '4000'
       DATABASE_URL: postgresql://ishan:ishan@postgres:5432/ishan?schema=public
-      CORS_ORIGINS: http://localhost:3000
+      CORS_ORIGINS: http://localhost:${WEB_PORT:-3000}
       COOKIE_SECURE: 'false' # dev over http only; keep true behind TLS
       # DEV-ONLY secrets. Generate real ones: openssl rand -base64 32
       ENCRYPTION_KEY: 'ZGV2LW9ubHktZW5jcnlwdGlvbi1rZXktMzItYnl0ZXM='
       BOOTSTRAP_ADMIN_EMAIL: admin@ishan.local
       BOOTSTRAP_ADMIN_PASSWORD: 'ChangeMe-Dev-2026!'
-    ports: ['4000:4000']
+    ports: ['${API_PORT:-4000}:4000']
     depends_on:
       migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
@@ -57,7 +58,7 @@ services:
       args:
         NEXT_PUBLIC_API_URL: /api/v1
         API_INTERNAL_URL: http://api:4000
-    ports: ['3000:3000']
+    ports: ['${WEB_PORT:-3000}:3000']
     healthcheck:
       test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/login >/dev/null || exit 1']
       interval: 5s
