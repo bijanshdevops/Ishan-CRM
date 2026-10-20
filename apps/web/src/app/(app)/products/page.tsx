@@ -121,7 +121,7 @@ export default function ProductsPage() {
                 <Td>{p.name}</Td>
                 <Td>{p.sku ?? '—'}</Td>
                 <Td>{p.unit}</Td>
-                <Td className="tabular-nums">{formatMoney(BigInt(p.unitPrice), 'toman')}</Td>
+                <Td className="">{formatMoney(BigInt(p.unitPrice), 'toman')}</Td>
                 <Td>
                   {p.active ? (
                     <Badge tone="success">{fa.common.active}</Badge>

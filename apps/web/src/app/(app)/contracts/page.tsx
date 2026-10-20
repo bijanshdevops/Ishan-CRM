@@ -104,14 +104,14 @@ export default function ContractsPage() {
           >
             {items.map((c) => (
               <Tr key={c.id}>
-                <Td className="tabular-nums">
+                <Td className="">
                   <Link href={`/contracts/${c.id}`} className="font-medium hover:underline">
                     {c.number}
                   </Link>
                 </Td>
                 <Td>{c.title}</Td>
                 <Td>{c.customer.name}</Td>
-                <Td className="tabular-nums">{formatMoney(BigInt(c.amount), 'toman')}</Td>
+                <Td className="">{formatMoney(BigInt(c.amount), 'toman')}</Td>
                 <Td>{formatJalaliDate(c.startDate)}</Td>
                 <Td>
                   <Badge tone={CONTRACT_TONE[c.status]}>{fa.contracts.statuses[c.status]}</Badge>

@@ -19,7 +19,7 @@ const variants: Record<Variant, string> = {
   primary: 'bg-[var(--color-brand)] text-[var(--color-brand-contrast)] hover:opacity-90',
   secondary:
     'border border-[var(--color-border)] bg-[var(--color-surface)] hover:bg-[var(--color-surface-2)]',
-  danger: 'bg-[var(--color-danger)] text-white hover:opacity-90',
+  danger: 'bg-[var(--color-danger)] text-[var(--color-brand-contrast)] hover:opacity-90',
   ghost: 'hover:bg-[var(--color-surface-2)]',
 };
 
@@ -110,7 +110,7 @@ export function Badge({
   };
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${tones[tone]}`}
+      className={`inline-flex items-center rounded-[var(--radius-sm)] border border-current/30 px-2 py-0.5 text-xs font-semibold ${tones[tone]}`}
     >
       {children}
     </span>
@@ -127,10 +127,10 @@ export function Card({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+    <section className="rounded-[var(--radius-sm)] border border-[var(--color-border)] border-t-4 border-t-[var(--color-brand)] bg-[var(--color-surface)] p-5">
       {title || actions ? (
         <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          {title ? <h2 className="text-lg font-semibold">{title}</h2> : <span />}
+          {title ? <h2 className="text-lg font-bold">{title}</h2> : <span />}
           {actions}
         </header>
       ) : null}
@@ -166,7 +166,12 @@ export function ErrorBanner({ message, onRetry }: { message: string; onRetry?: (
 
 export function Skeleton({ rows = 5 }: { rows?: number }) {
   return (
-    <div aria-busy="true" aria-label={fa.common.loading} className="flex flex-col gap-2">
+    <div
+      role="status"
+      aria-busy="true"
+      aria-label={fa.common.loading}
+      className="flex flex-col gap-2"
+    >
       {Array.from({ length: rows }, (_, i) => (
         <div
           key={i}
@@ -190,7 +195,7 @@ export function DataTable({ head, children }: { head: ReactNode[]; children: Rea
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-[var(--color-border)] text-start text-[var(--color-text-muted)]">
+          <tr className="border-b-2 border-[var(--color-text)] text-start text-[var(--color-text-muted)]">
             {head.map((h, i) => (
               <th key={i} scope="col" className="px-3 py-2 text-start font-medium">
                 {h}

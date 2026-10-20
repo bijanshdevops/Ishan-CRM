@@ -133,7 +133,7 @@ export default function QuotesPage() {
           >
             {items.map((r) => (
               <Tr key={r.id}>
-                <Td className="tabular-nums">
+                <Td className="">
                   <Link href={`/quotes/${r.id}`} className="font-medium hover:underline">
                     {r.number}
                   </Link>
@@ -146,7 +146,7 @@ export default function QuotesPage() {
                   </Link>
                 </Td>
                 <Td>{formatJalaliDate(r.issueDate)}</Td>
-                <Td className="tabular-nums">{formatMoney(BigInt(r.total), 'toman')}</Td>
+                <Td className="">{formatMoney(BigInt(r.total), 'toman')}</Td>
                 <Td>
                   <Badge tone={QUOTE_TONE[r.status]}>{fa.quotes.statuses[r.status]}</Badge>
                   {r.expired ? <Badge tone="danger">{fa.quotes.expired}</Badge> : null}

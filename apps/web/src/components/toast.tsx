@@ -29,7 +29,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           <div
             key={t.id}
             role={t.tone === 'error' ? 'alert' : 'status'}
-            className={`rounded-[var(--radius-md)] px-4 py-2.5 text-sm text-white shadow-lg ${
+            className={`rounded-[var(--radius-md)] px-4 py-2.5 text-sm text-[var(--color-brand-contrast)] shadow-lg ${
               t.tone === 'error' ? 'bg-[var(--color-danger)]' : 'bg-[var(--color-success)]'
             }`}
           >

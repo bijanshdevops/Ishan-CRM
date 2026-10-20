@@ -321,7 +321,7 @@ export function QuoteForm({
         className="rounded-[var(--radius-md)] bg-[var(--color-surface-2)] p-4 text-sm"
       >
         {totals ? (
-          <dl className="grid grid-cols-[1fr_auto] gap-x-6 gap-y-1 tabular-nums">
+          <dl className="grid grid-cols-[1fr_auto] gap-x-6 gap-y-1">
             <dt>{fa.quotes.subtotal}</dt>
             <dd>{formatMoney(totals.subtotal, 'toman')}</dd>
             <dt>{fa.quotes.discount}</dt>
