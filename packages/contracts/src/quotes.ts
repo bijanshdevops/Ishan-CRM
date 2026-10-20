@@ -50,7 +50,7 @@ export function calculateQuoteTotals(
 }
 
 // ---- Products ---------------------------------------------------------------
-export const CreateProductRequestSchema = z.object({
+export const CreateProductRequestSchema = z.strictObject({
   name: z.string().trim().min(2, 'نام باید حداقل ۲ نویسه باشد').max(150),
   sku: z
     .string()
@@ -64,7 +64,7 @@ export const CreateProductRequestSchema = z.object({
 });
 export type CreateProductRequest = z.infer<typeof CreateProductRequestSchema>;
 
-export const UpdateProductRequestSchema = z.object({
+export const UpdateProductRequestSchema = z.strictObject({
   name: z.string().trim().min(2).max(150).optional(),
   sku: nullableText(40),
   unit: z.string().trim().min(1).max(30).optional(),
@@ -108,7 +108,7 @@ export const QUOTE_TRANSITIONS: Record<QuoteStatus, QuoteStatus[]> = {
   SUPERSEDED: [],
 };
 
-export const QuoteItemInputSchema = z.object({
+export const QuoteItemInputSchema = z.strictObject({
   productId: z.string().uuid().nullable().optional(),
   description: z.string().trim().min(1, 'شرح قلم الزامی است').max(300),
   quantity: z.number().int().min(1).max(MAX_QUANTITY),
@@ -154,7 +154,7 @@ function quoteRules(
   }
 }
 
-export const CreateQuoteRequestSchema = z.object(quoteBody).superRefine(quoteRules);
+export const CreateQuoteRequestSchema = z.strictObject(quoteBody).superRefine(quoteRules);
 export type CreateQuoteRequest = z.infer<typeof CreateQuoteRequestSchema>;
 
 /**
@@ -162,7 +162,7 @@ export type CreateQuoteRequest = z.infer<typeof CreateQuoteRequestSchema>;
  * silently reset the discount/tax on a partial update); `items`, when given, replace the lines.
  */
 export const UpdateQuoteRequestSchema = z
-  .object({
+  .strictObject({
     title: quoteBody.title.optional(),
     customerId: quoteBody.customerId.optional(),
     contactId: quoteBody.contactId,
@@ -207,7 +207,7 @@ export const QuoteListQuerySchema = z.object({
 });
 export type QuoteListQuery = z.infer<typeof QuoteListQuerySchema>;
 
-export const QuoteTransitionRequestSchema = z.object({
+export const QuoteTransitionRequestSchema = z.strictObject({
   status: z.enum(['SENT', 'ACCEPTED', 'REJECTED']),
 });
 export type QuoteTransitionRequest = z.infer<typeof QuoteTransitionRequestSchema>;
@@ -263,7 +263,7 @@ export const ContractStatusSchema = z.enum(CONTRACT_STATUSES);
 export type ContractStatus = z.infer<typeof ContractStatusSchema>;
 
 export const CreateContractRequestSchema = z
-  .object({
+  .strictObject({
     quoteId: z.string().uuid(),
     title: z.string().trim().min(2).max(200).optional(),
     startDate: DateOnly.optional(),
@@ -277,7 +277,7 @@ export const CreateContractRequestSchema = z
   });
 export type CreateContractRequest = z.infer<typeof CreateContractRequestSchema>;
 
-export const UpdateContractRequestSchema = z.object({
+export const UpdateContractRequestSchema = z.strictObject({
   title: z.string().trim().min(2).max(200).optional(),
   startDate: DateOnly.optional(),
   endDate: DateOnly.nullable().optional(),
