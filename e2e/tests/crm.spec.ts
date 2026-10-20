@@ -167,6 +167,24 @@ test.describe.serial('Ishan CRM end-to-end', () => {
     await expect(page.getByText(fa.activities.remindersEmpty)).toBeVisible();
   });
 
+  test('dashboard: KPIs, org scope, table alternative, CSV export', async ({ page }) => {
+    await loginAdmin(page);
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: new RegExp(fa.dashboard.title) })).toBeVisible();
+    await expect(page.getByText(fa.dashboard.wonHero)).toBeVisible();
+    await page.getByLabel(fa.dashboard.scopeLabel, { exact: true }).selectOption('all');
+    await expect(page.getByText(fa.dashboard.performance).first()).toBeVisible();
+    await page.getByLabel(fa.dashboard.rangeLabel, { exact: true }).selectOption('90');
+    // Every chart has a table alternative.
+    await page.getByRole('button', { name: fa.dashboard.showTable }).first().click();
+    await expect(page.getByRole('button', { name: fa.dashboard.showChart }).first()).toBeVisible();
+    await a11y(page, '/ (dashboard)');
+    const download = page.waitForEvent('download');
+    await page.getByRole('button', { name: fa.dashboard.exportCsv }).click();
+    expect((await download).suggestedFilename()).toBe('sales-performance.csv');
+    await expect(page.getByText(fa.dashboard.exported)).toBeVisible();
+  });
+
   test('admin can open users and the audit log, then log out', async ({ page }) => {
     await loginAdmin(page);
     await page.goto('/users');
