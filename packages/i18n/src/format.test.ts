@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatJalaliDate, formatMoney, formatNumber } from './format';
+import { formatCompactToman, formatJalaliDate, formatMoney, formatNumber } from './format';
 
 describe('format', () => {
   it('converts Gregorian instant to Jalali date', () => {
@@ -12,5 +12,13 @@ describe('format', () => {
   it('formats money in rial and toman', () => {
     expect(formatMoney(1000n)).toContain('ریال');
     expect(formatMoney(1000n, 'toman')).toContain('تومان');
+  });
+
+  it('formats compact toman amounts from rials', () => {
+    expect(formatCompactToman(25_000_000_000n)).toBe('۲٫۵ میلیارد');
+    expect(formatCompactToman(10_000_000n)).toBe('۱ میلیون');
+    expect(formatCompactToman(15_000n)).toBe('۱٫۵ هزار');
+    expect(formatCompactToman(5_000n)).toBe('۵۰۰');
+    expect(formatCompactToman(0n)).toBe('۰');
   });
 });
