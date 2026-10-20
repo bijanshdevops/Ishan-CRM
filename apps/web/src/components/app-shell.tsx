@@ -14,6 +14,9 @@ const NAV = [
   { href: '/customers', label: fa.nav.customers, permission: PERMISSIONS.CUSTOMERS_READ },
   { href: '/leads', label: fa.nav.leads, permission: PERMISSIONS.LEADS_READ },
   { href: '/deals', label: fa.nav.deals, permission: PERMISSIONS.DEALS_READ },
+  { href: '/products', label: fa.nav.products, permission: PERMISSIONS.PRODUCTS_READ },
+  { href: '/quotes', label: fa.nav.quotes, permission: PERMISSIONS.QUOTES_READ },
+  { href: '/contracts', label: fa.nav.contracts, permission: PERMISSIONS.CONTRACTS_READ },
   { href: '/activities', label: fa.nav.activities, permission: PERMISSIONS.ACTIVITIES_READ },
   { href: '/calendar', label: fa.nav.calendar, permission: PERMISSIONS.ACTIVITIES_READ },
   { href: '/users', label: fa.nav.users, permission: PERMISSIONS.USERS_READ },
@@ -75,14 +78,14 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const items = NAV.filter((n) => !n.permission || can(n.permission));
   return (
-    <div className="min-h-dvh md:grid md:grid-cols-[16rem_1fr]">
+    <div className="min-h-dvh md:grid md:grid-cols-[16rem_1fr] print:block">
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-[var(--color-surface)] focus:p-3"
       >
         {fa.nav.skip}
       </a>
-      <aside className="border-b border-[var(--color-border)] bg-[var(--color-surface)] p-4 md:border-b-0 md:border-e">
+      <aside className="print:hidden border-b border-[var(--color-border)] bg-[var(--color-surface)] p-4 md:border-b-0 md:border-e">
         <div className="mb-4 flex items-center justify-between md:mb-6">
           <span className="text-xl font-bold text-[var(--color-brand)]">{fa.app.name}</span>
           <div className="flex items-center">
@@ -119,7 +122,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Button>
         </div>
       </aside>
-      <main id="main" className="p-4 md:p-8">
+      <main id="main" className="p-4 md:p-8 print:p-0">
         {children}
         <div className="mt-8 md:hidden">
           <Button variant="secondary" onClick={() => void logout()}>

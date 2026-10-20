@@ -39,3 +39,25 @@ html {
   --viz-grid: #2c2c2a;
   --viz-axis: #383835;
 }
+
+/* Printing a quote: light, chrome-free, regardless of the active theme. */
+@media print {
+  :root,
+  :root[data-theme='dark'] {
+    color-scheme: light;
+    --color-bg: #fff;
+    --color-surface: #fff;
+    --color-surface-2: #f4f4f4;
+    --color-border: #bbb;
+    --color-text: #000;
+    --color-text-muted: #444;
+  }
+  html,
+  body {
+    background: #fff;
+  }
+  .print-area {
+    border: 0;
+    padding: 0;
+  }
+}
