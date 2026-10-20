@@ -157,16 +157,34 @@ function quoteRules(
 export const CreateQuoteRequestSchema = z.object(quoteBody).superRefine(quoteRules);
 export type CreateQuoteRequest = z.infer<typeof CreateQuoteRequestSchema>;
 
-/** Only DRAFT quotes are editable; the full body is replaced (items included). */
+/**
+ * Only DRAFT quotes are editable. Fields are optional WITHOUT defaults (a default would
+ * silently reset the discount/tax on a partial update); `items`, when given, replace the lines.
+ */
 export const UpdateQuoteRequestSchema = z
-  .object({ ...quoteBody, customerId: z.string().uuid().optional() })
-  .partial({ title: true, items: true, discount: true, taxRateBp: true })
+  .object({
+    title: quoteBody.title.optional(),
+    customerId: quoteBody.customerId.optional(),
+    contactId: quoteBody.contactId,
+    dealId: quoteBody.dealId,
+    issueDate: quoteBody.issueDate,
+    validUntil: quoteBody.validUntil,
+    discount: RialString.optional(),
+    taxRateBp: z.number().int().min(0).max(10_000).optional(),
+    notes: nullableText(4000),
+    terms: nullableText(8000),
+    items: quoteBody.items.optional(),
+  })
   .superRefine((v, ctx) => {
+    if (v.issueDate && v.validUntil && v.validUntil < v.issueDate) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'اعتبار پیش‌فاکتور نمی‌تواند پیش از تاریخ صدور باشد',
+      });
+    }
     if (v.items) {
       quoteRules(
         {
-          issueDate: v.issueDate,
-          validUntil: v.validUntil,
           discount: v.discount ?? '0',
           items: v.items,
           taxRateBp: v.taxRateBp ?? DEFAULT_TAX_RATE_BP,

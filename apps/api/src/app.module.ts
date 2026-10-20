@@ -11,6 +11,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { BootstrapModule } from './modules/bootstrap/bootstrap.module';
 import { HealthModule } from './modules/health/health.module';
+import { QuotesModule } from './modules/quotes/quotes.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { RolesModule } from './modules/roles/roles.module';
 import { TeamsModule } from './modules/teams/teams.module';
@@ -41,6 +42,7 @@ const config = loadConfig();
     SalesModule,
     ActivitiesModule,
     ReportsModule,
+    QuotesModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
 })

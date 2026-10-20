@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { CreateQuoteRequestSchema, calculateQuoteTotals, QUOTE_TRANSITIONS } from './quotes';
+import {
+  CreateQuoteRequestSchema,
+  UpdateQuoteRequestSchema,
+  calculateQuoteTotals,
+  QUOTE_TRANSITIONS,
+} from './quotes';
 
 describe('calculateQuoteTotals', () => {
   it('sums lines, applies discount then tax', () => {
@@ -53,6 +58,15 @@ describe('CreateQuoteRequestSchema', () => {
         validUntil: '2026-05-01',
       }).success,
     ).toBe(false);
+  });
+});
+
+describe('UpdateQuoteRequestSchema', () => {
+  it('does not inject defaults into a partial update', () => {
+    const r = UpdateQuoteRequestSchema.parse({ title: 'عنوان جدید' });
+    expect(r.discount).toBeUndefined();
+    expect(r.taxRateBp).toBeUndefined();
+    expect(r.items).toBeUndefined();
   });
 });
 
