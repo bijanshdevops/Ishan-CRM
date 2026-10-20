@@ -151,7 +151,11 @@ export default function DashboardPage() {
       >
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium">{fa.dashboard.rangeLabel}</span>
-          <Select value={preset} onChange={(e) => setPreset(e.target.value as Preset)}>
+          <Select
+            aria-label={fa.dashboard.rangeLabel}
+            value={preset}
+            onChange={(e) => setPreset(e.target.value as Preset)}
+          >
             {PRESETS.map((p) => (
               <option key={p} value={p}>
                 {fa.dashboard.ranges[p]}
@@ -162,7 +166,11 @@ export default function DashboardPage() {
         {canAll ? (
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium">{fa.dashboard.scopeLabel}</span>
-            <Select value={scope} onChange={(e) => setScope(e.target.value as 'me' | 'all')}>
+            <Select
+              aria-label={fa.dashboard.scopeLabel}
+              value={scope}
+              onChange={(e) => setScope(e.target.value as 'me' | 'all')}
+            >
               <option value="me">{fa.dashboard.scope.me}</option>
               <option value="all">{fa.dashboard.scope.all}</option>
             </Select>
