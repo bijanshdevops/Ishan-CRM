@@ -5,7 +5,19 @@ import { randomUUID } from 'node:crypto';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import { loadConfig } from './config';
 import { InfraModule } from './infra/infra.module';
+import { ActivitiesModule } from './modules/activities/activities.module';
+import { AuditModule } from './modules/audit/audit.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { CustomersModule } from './modules/customers/customers.module';
+import { BootstrapModule } from './modules/bootstrap/bootstrap.module';
 import { HealthModule } from './modules/health/health.module';
+import { MarketingModule } from './modules/marketing/marketing.module';
+import { QuotesModule } from './modules/quotes/quotes.module';
+import { ReportsModule } from './modules/reports/reports.module';
+import { RolesModule } from './modules/roles/roles.module';
+import { TeamsModule } from './modules/teams/teams.module';
+import { SalesModule } from './modules/sales/sales.module';
+import { UsersModule } from './modules/users/users.module';
 
 const config = loadConfig();
 
@@ -20,7 +32,19 @@ const config = loadConfig();
       },
     }),
     InfraModule,
+    AuditModule,
+    AuthModule,
+    BootstrapModule,
     HealthModule,
+    UsersModule,
+    RolesModule,
+    TeamsModule,
+    CustomersModule,
+    SalesModule,
+    ActivitiesModule,
+    ReportsModule,
+    QuotesModule,
+    MarketingModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
 })

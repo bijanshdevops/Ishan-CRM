@@ -5,12 +5,16 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { APP_CONFIG, loadConfig } from '../src/config';
 import { PrismaService } from '../src/infra/prisma.service';
 import { HealthController } from '../src/modules/health/health.controller';
+import { TEST_ENV } from './helpers';
 
 async function buildApp(dbUp: boolean): Promise<NestFastifyApplication> {
   const moduleRef = await Test.createTestingModule({
     controllers: [HealthController],
     providers: [
-      { provide: APP_CONFIG, useValue: loadConfig({ DATABASE_URL: 'postgresql://unused' }) },
+      {
+        provide: APP_CONFIG,
+        useValue: loadConfig({ ...TEST_ENV, DATABASE_URL: 'postgresql://unused' }),
+      },
       { provide: PrismaService, useValue: { ping: async () => dbUp } },
     ],
   }).compile();

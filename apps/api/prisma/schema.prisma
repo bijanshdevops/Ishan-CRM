@@ -7,7 +7,99 @@ datasource db {
   provider = "postgresql"
 }
 
-/// Tenant root. Single-tenant deployment today; every domain table will carry organization_id.
+enum UserStatus {
+  ACTIVE
+  DISABLED
+
+  @@map("user_status")
+}
+
+enum TeamRole {
+  MEMBER
+  LEAD
+
+  @@map("team_role")
+}
+
+enum CustomerKind {
+  PERSON
+  ORGANIZATION
+
+  @@map("customer_kind")
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  DISQUALIFIED
+  CONVERTED
+
+  @@map("lead_status")
+}
+
+enum StageKind {
+  OPEN
+  WON
+  LOST
+
+  @@map("stage_kind")
+}
+
+enum CampaignStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+  CANCELED
+
+  @@map("campaign_status")
+}
+
+enum QuoteStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  SUPERSEDED
+
+  @@map("quote_status")
+}
+
+enum ContractStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  TERMINATED
+
+  @@map("contract_status")
+}
+
+enum ActivityType {
+  CALL
+  MEETING
+  TASK
+  NOTE
+
+  @@map("activity_type")
+}
+
+enum ActivityStatus {
+  PLANNED
+  DONE
+  CANCELED
+
+  @@map("activity_status")
+}
+
+enum ActivityPriority {
+  LOW
+  NORMAL
+  HIGH
+
+  @@map("activity_priority")
+}
+
+/// Tenant root. Single-tenant deployment today; every domain table carries organization_id.
 model Organization {
   id        String    @id @default(uuid(7)) @db.Uuid
   name      String
@@ -15,5 +107,571 @@ model Organization {
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
 
+  roles     Role[]
+  users     User[]
+  teams     Team[]
+  auditLogs AuditLog[]
+  customers Customer[]
+  contacts  Contact[]
+  tags      Tag[]
+  leads     Lead[]
+  stages    PipelineStage[]
+  deals     Deal[]
+  activities Activity[]
+  products   Product[]
+  quotes     Quote[]
+  contracts  Contract[]
+  counters   DocumentCounter[]
+  leadSources LeadSource[]
+  campaigns   Campaign[]
+
   @@map("organizations")
+}
+
+/// Permissions are a closed catalog defined in code (@ishan/contracts); a role stores the granted keys.
+model Role {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  key            String
+  name           String
+  description    String?
+  isSystem       Boolean  @default(false) @map("is_system")
+  permissions    String[]
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  users        User[]
+
+  @@unique([organizationId, key])
+  @@map("roles")
+}
+
+model User {
+  id                 String     @id @default(uuid(7)) @db.Uuid
+  organizationId     String     @map("organization_id") @db.Uuid
+  roleId             String     @map("role_id") @db.Uuid
+  email              String
+  name               String
+  passwordHash       String     @map("password_hash")
+  status             UserStatus @default(ACTIVE)
+  mustChangePassword Boolean    @default(false) @map("must_change_password")
+  mfaEnabled         Boolean    @default(false) @map("mfa_enabled")
+  /// AES-256-GCM encrypted TOTP secret (base64 iv.tag.ciphertext)
+  mfaSecretEnc       String?    @map("mfa_secret_enc")
+  failedLoginCount   Int        @default(0) @map("failed_login_count")
+  lockedUntil        DateTime?  @map("locked_until") @db.Timestamptz(6)
+  lastLoginAt        DateTime?  @map("last_login_at") @db.Timestamptz(6)
+  createdAt          DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt          DateTime?  @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  role         Role         @relation(fields: [roleId], references: [id])
+  sessions     Session[]
+  memberships  TeamMember[]
+  ownedCustomers Customer[]
+  ownedLeads     Lead[]
+  ownedDeals     Deal[]
+  assignedActivities Activity[] @relation("ActivityAssignee")
+  createdActivities  Activity[] @relation("ActivityCreator")
+  ownedQuotes        Quote[]    @relation("QuoteOwner")
+  createdQuotes      Quote[]    @relation("QuoteCreator")
+  createdContracts   Contract[] @relation("ContractCreator")
+  ownedCampaigns     Campaign[] @relation("CampaignOwner")
+  createdCampaigns   Campaign[] @relation("CampaignCreator")
+
+  @@unique([organizationId, email])
+  @@index([roleId])
+  @@map("users")
+}
+
+model Session {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  /// SHA-256 of the opaque cookie token; the raw token is never stored.
+  tokenHash  String    @unique @map("token_hash")
+  ip         String?
+  userAgent  String?   @map("user_agent")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastSeenAt DateTime  @default(now()) @map("last_seen_at") @db.Timestamptz(6)
+  /// Idle expiry (sliding).
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
+  /// Absolute expiry (never extended).
+  absoluteExpiresAt DateTime @map("absolute_expires_at") @db.Timestamptz(6)
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Team {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  name           String
+  description    String?
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  members      TeamMember[]
+
+  @@unique([organizationId, name])
+  @@map("teams")
+}
+
+model TeamMember {
+  teamId    String   @map("team_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  role      TeamRole @default(MEMBER)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([teamId, userId])
+  @@index([userId])
+  @@map("team_members")
+}
+
+/// Append-only: a database trigger rejects UPDATE and DELETE (see migration).
+model AuditLog {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  /// Intentionally not a foreign key so the log survives user deletion untouched.
+  actorId        String?  @map("actor_id") @db.Uuid
+  action         String
+  entityType     String   @map("entity_type")
+  entityId       String?  @map("entity_id")
+  metadata       Json?
+  ip             String?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
+
+model Customer {
+  id             String       @id @default(uuid(7)) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  kind           CustomerKind
+  name           String
+  nationalId     String?      @map("national_id")
+  economicCode   String?      @map("economic_code")
+  email          String?
+  phone          String?
+  website        String?
+  province       String?
+  city           String?
+  address        String?
+  notes          String?
+  ownerId        String?      @map("owner_id") @db.Uuid
+  createdById    String?      @map("created_by_id") @db.Uuid
+  /// Normalized (Persian letters/digits unified, lowercased) text used by search.
+  searchText     String       @default("") @map("search_text")
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  owner        User?         @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  contacts     Contact[]
+  tags         CustomerTag[]
+  deals        Deal[]
+  leads        Lead[]
+  activities   Activity[]
+  quotes       Quote[]
+  contracts    Contract[]
+
+  @@index([organizationId, id(sort: Desc)])
+  @@index([organizationId, kind])
+  @@index([ownerId])
+  @@index([organizationId, email])
+  @@map("customers")
+}
+
+model Contact {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  customerId     String?   @map("customer_id") @db.Uuid
+  firstName      String    @map("first_name")
+  lastName       String    @map("last_name")
+  jobTitle       String?   @map("job_title")
+  email          String?
+  phone          String?
+  mobile         String?
+  isPrimary      Boolean   @default(false) @map("is_primary")
+  notes          String?
+  searchText     String    @default("") @map("search_text")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  customer     Customer?    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  deals        Deal[]
+  activities   Activity[]
+  quotes       Quote[]
+
+  @@index([customerId])
+  @@index([organizationId, id(sort: Desc)])
+  @@map("contacts")
+}
+
+model Tag {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  name           String
+  color          String   @default("#6366f1")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  customers    CustomerTag[]
+
+  @@unique([organizationId, name])
+  @@map("tags")
+}
+
+model CustomerTag {
+  customerId String @map("customer_id") @db.Uuid
+  tagId      String @map("tag_id") @db.Uuid
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  tag      Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([customerId, tagId])
+  @@index([tagId])
+  @@map("customer_tags")
+}
+
+model Lead {
+  id                  String     @id @default(uuid(7)) @db.Uuid
+  organizationId      String     @map("organization_id") @db.Uuid
+  name                String
+  company             String?
+  email               String?
+  phone               String?
+  sourceId            String?    @map("source_id") @db.Uuid
+  campaignId          String?    @map("campaign_id") @db.Uuid
+  status              LeadStatus @default(NEW)
+  ownerId             String?    @map("owner_id") @db.Uuid
+  createdById         String?    @map("created_by_id") @db.Uuid
+  notes               String?
+  disqualifyReason    String?    @map("disqualify_reason")
+  convertedAt         DateTime?  @map("converted_at") @db.Timestamptz(6)
+  convertedCustomerId String?    @map("converted_customer_id") @db.Uuid
+  convertedDealId     String?    @map("converted_deal_id") @db.Uuid
+  searchText          String     @default("") @map("search_text")
+  createdAt           DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt           DateTime?  @map("deleted_at") @db.Timestamptz(6)
+
+  organization      Organization @relation(fields: [organizationId], references: [id])
+  owner             User?        @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  convertedCustomer Customer?    @relation(fields: [convertedCustomerId], references: [id], onDelete: SetNull)
+  source            LeadSource?  @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  campaign          Campaign?    @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, id(sort: Desc)])
+  @@index([organizationId, status])
+  @@index([ownerId])
+  @@index([sourceId])
+  @@index([campaignId])
+  @@map("leads")
+}
+
+/// Where a lead came from (website, referral, ...). Configuration list; deactivated, never deleted.
+model LeadSource {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  name           String
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  leads        Lead[]
+
+  @@unique([organizationId, name])
+  @@map("lead_sources")
+}
+
+/// A marketing campaign. Leads are attributed through `leads.campaign_id`.
+model Campaign {
+  id             String         @id @default(uuid(7)) @db.Uuid
+  organizationId String         @map("organization_id") @db.Uuid
+  name           String
+  channel        String?
+  status         CampaignStatus @default(PLANNED)
+  startDate      DateTime?      @map("start_date") @db.Date
+  endDate        DateTime?      @map("end_date") @db.Date
+  /// Integer rials.
+  budget         BigInt         @default(0)
+  ownerId        String?        @map("owner_id") @db.Uuid
+  createdById    String?        @map("created_by_id") @db.Uuid
+  notes          String?
+  searchText     String         @default("") @map("search_text")
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?      @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  owner        User?        @relation("CampaignOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  createdBy    User?        @relation("CampaignCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  leads        Lead[]
+
+  @@index([organizationId, id(sort: Desc)])
+  @@index([organizationId, status])
+  @@map("campaigns")
+}
+
+model PipelineStage {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  name           String
+  position       Int
+  probability    Int       @default(0)
+  kind           StageKind @default(OPEN)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  deals        Deal[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, position])
+  @@map("pipeline_stages")
+}
+
+model Deal {
+  id                String    @id @default(uuid(7)) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  title             String
+  customerId        String    @map("customer_id") @db.Uuid
+  contactId         String?   @map("contact_id") @db.Uuid
+  stageId           String    @map("stage_id") @db.Uuid
+  /// Integer rials.
+  amount            BigInt    @default(0)
+  expectedCloseDate DateTime? @map("expected_close_date") @db.Date
+  ownerId           String?   @map("owner_id") @db.Uuid
+  createdById       String?   @map("created_by_id") @db.Uuid
+  notes             String?
+  lostReason        String?   @map("lost_reason")
+  closedAt          DateTime? @map("closed_at") @db.Timestamptz(6)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization    @relation(fields: [organizationId], references: [id])
+  customer     Customer        @relation(fields: [customerId], references: [id])
+  contact      Contact?        @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  stage        PipelineStage   @relation(fields: [stageId], references: [id])
+  owner        User?           @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  events       DealStageEvent[]
+  activities   Activity[]
+  quotes       Quote[]
+
+  @@index([organizationId, id(sort: Desc)])
+  @@index([organizationId, stageId])
+  @@index([customerId])
+  @@index([ownerId])
+  @@map("deals")
+}
+
+model DealStageEvent {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  dealId      String   @map("deal_id") @db.Uuid
+  fromStageId String?  @map("from_stage_id") @db.Uuid
+  toStageId   String   @map("to_stage_id") @db.Uuid
+  actorId     String?  @map("actor_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId])
+  @@map("deal_stage_events")
+}
+
+/// Calls, meetings, tasks and notes. One table: the customer timeline, the calendar
+/// and the task list are all views over it.
+model Activity {
+  id                  String           @id @default(uuid(7)) @db.Uuid
+  organizationId      String           @map("organization_id") @db.Uuid
+  type                ActivityType
+  status              ActivityStatus   @default(PLANNED)
+  priority            ActivityPriority @default(NORMAL)
+  title               String
+  description         String?
+  /// Scheduled start (calls/meetings) or deadline (tasks). Required while PLANNED.
+  dueAt               DateTime?        @map("due_at") @db.Timestamptz(6)
+  endAt               DateTime?        @map("end_at") @db.Timestamptz(6)
+  /// When a DONE activity actually happened; notes use their creation time.
+  completedAt         DateTime?        @map("completed_at") @db.Timestamptz(6)
+  outcome             String?
+  remindAt            DateTime?        @map("remind_at") @db.Timestamptz(6)
+  reminderDismissedAt DateTime?        @map("reminder_dismissed_at") @db.Timestamptz(6)
+  assigneeId          String?          @map("assignee_id") @db.Uuid
+  createdById         String?          @map("created_by_id") @db.Uuid
+  customerId          String?          @map("customer_id") @db.Uuid
+  contactId           String?          @map("contact_id") @db.Uuid
+  dealId              String?          @map("deal_id") @db.Uuid
+  searchText          String           @default("") @map("search_text")
+  createdAt           DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt           DateTime?        @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  assignee     User?        @relation("ActivityAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdBy    User?        @relation("ActivityCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  customer     Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  contact      Contact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  deal         Deal?        @relation(fields: [dealId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, id(sort: Desc)])
+  @@index([organizationId, assigneeId, status, dueAt], map: "activities_org_assignee_status_due_idx")
+  @@index([organizationId, dueAt], map: "activities_org_due_idx")
+  @@index([customerId, completedAt(sort: Desc)], map: "activities_customer_completed_idx")
+  @@index([dealId])
+  @@map("activities")
+}
+
+/// Per-organization gap-free-by-transaction sequence for human document numbers.
+model DocumentCounter {
+  organizationId String @map("organization_id") @db.Uuid
+  kind           String
+  value          Int    @default(0)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@id([organizationId, kind])
+  @@map("document_counters")
+}
+
+/// Catalog item. Archived (active = false) rather than deleted so old quotes stay explainable.
+model Product {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  name           String
+  sku            String?
+  unit           String    @default("عدد")
+  /// Integer rials.
+  unitPrice      BigInt    @map("unit_price")
+  description    String?
+  active         Boolean   @default(true)
+  searchText     String    @default("") @map("search_text")
+  createdById    String?   @map("created_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  items        QuoteItem[]
+
+  @@unique([organizationId, sku])
+  @@index([organizationId, id(sort: Desc)])
+  @@map("products")
+}
+
+/// A quote (pre-invoice). `number` is shared by every version; a revision is a new row
+/// with version + 1 and the previous row becomes SUPERSEDED.
+model Quote {
+  id             String      @id @default(uuid(7)) @db.Uuid
+  organizationId String      @map("organization_id") @db.Uuid
+  /// Sequence value behind the human number (`QT-000012`).
+  seq            Int
+  version        Int         @default(1)
+  title          String
+  status         QuoteStatus @default(DRAFT)
+  customerId     String      @map("customer_id") @db.Uuid
+  contactId      String?     @map("contact_id") @db.Uuid
+  dealId         String?     @map("deal_id") @db.Uuid
+  ownerId        String?     @map("owner_id") @db.Uuid
+  createdById    String?     @map("created_by_id") @db.Uuid
+  issueDate      DateTime    @map("issue_date") @db.Date
+  validUntil     DateTime?   @map("valid_until") @db.Date
+  /// All amounts are integer rials.
+  subtotal       BigInt      @default(0)
+  discount       BigInt      @default(0)
+  taxRateBp      Int         @default(1000) @map("tax_rate_bp")
+  taxAmount      BigInt      @default(0) @map("tax_amount")
+  total          BigInt      @default(0)
+  notes          String?
+  terms          String?
+  searchText     String      @default("") @map("search_text")
+  sentAt         DateTime?   @map("sent_at") @db.Timestamptz(6)
+  decidedAt      DateTime?   @map("decided_at") @db.Timestamptz(6)
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?   @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  customer     Customer     @relation(fields: [customerId], references: [id])
+  contact      Contact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  deal         Deal?        @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  owner        User?        @relation("QuoteOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  createdBy    User?        @relation("QuoteCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  items        QuoteItem[]
+  contract     Contract?
+
+  @@unique([organizationId, seq, version], map: "quotes_org_seq_version_key")
+  @@index([organizationId, id(sort: Desc)])
+  @@index([customerId])
+  @@index([dealId])
+  @@index([organizationId, status])
+  @@map("quotes")
+}
+
+model QuoteItem {
+  id          String  @id @default(uuid(7)) @db.Uuid
+  quoteId     String  @map("quote_id") @db.Uuid
+  position    Int
+  productId   String? @map("product_id") @db.Uuid
+  description String
+  quantity    Int
+  /// Integer rials per unit.
+  unitPrice   BigInt  @map("unit_price")
+  lineTotal   BigInt  @map("line_total")
+
+  quote   Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([quoteId, position])
+  @@map("quote_items")
+}
+
+/// Created from an ACCEPTED quote; one contract per quote.
+model Contract {
+  id             String         @id @default(uuid(7)) @db.Uuid
+  organizationId String         @map("organization_id") @db.Uuid
+  seq            Int
+  title          String
+  status         ContractStatus @default(DRAFT)
+  customerId     String         @map("customer_id") @db.Uuid
+  quoteId        String         @unique @map("quote_id") @db.Uuid
+  /// Quote total at creation time (integer rials).
+  amount         BigInt
+  startDate      DateTime       @map("start_date") @db.Date
+  endDate        DateTime?      @map("end_date") @db.Date
+  terms          String?
+  searchText     String         @default("") @map("search_text")
+  createdById    String?        @map("created_by_id") @db.Uuid
+  signedAt       DateTime?      @map("signed_at") @db.Timestamptz(6)
+  closedAt       DateTime?      @map("closed_at") @db.Timestamptz(6)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?      @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  customer     Customer     @relation(fields: [customerId], references: [id])
+  quote        Quote        @relation(fields: [quoteId], references: [id])
+  createdBy    User?        @relation("ContractCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, seq], map: "contracts_org_seq_key")
+  @@index([organizationId, id(sort: Desc)])
+  @@index([customerId])
+  @@index([organizationId, status])
+  @@map("contracts")
 }

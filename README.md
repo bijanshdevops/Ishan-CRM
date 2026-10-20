@@ -50,3 +50,7 @@ docs            ADR و مستندات امنیتی
 ## وضعیت
 
 فاز ۰ (زیرساخت) در حال تکمیل است؛ جزئیات در `docs/phase-0.md`.
+
+## پورت‌ها در اجرای محلی
+
+پیش‌فرض‌ها: وب ۳۰۰۰ و API ۴۰۰۰. PostgreSQL و Redis روی میزبان باز نمی‌شوند (برای دسترسی به PostgreSQL فایل `deploy/compose.db-port.yml` را هم با `-f` اضافه کنید). اگر پورتی اشغال بود، پیش از `docker compose up` متغیرهای `WEB_PORT` یا `API_PORT` را تنظیم کنید (مثلاً `set WEB_PORT=3100` در CMD).

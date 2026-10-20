@@ -14,6 +14,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
 
     let message = 'Internal server error';
+    let code: string | undefined;
     let details: unknown;
     if (exception instanceof HttpException) {
       const res = exception.getResponse();
@@ -23,12 +24,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
         const body = res as Record<string, unknown>;
         message = typeof body.message === 'string' ? body.message : exception.message;
         if (Array.isArray(body.message)) details = body.message;
+        if (body.details !== undefined) details = body.details;
+        if (typeof body.code === 'string') code = body.code;
       }
     }
 
     const payload: ApiError = {
       error: {
-        code: HttpStatus[status] ?? 'ERROR',
+        code: code ?? HttpStatus[status] ?? 'ERROR',
         message: status >= 500 ? 'Internal server error' : message,
         ...(details !== undefined && status < 500 ? { details } : {}),
         traceId: String(request.id),

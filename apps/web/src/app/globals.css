@@ -16,7 +16,86 @@ html {
   font-family: var(--font-sans);
 }
 
+/* Rubber stamp: slightly tilted, as if pressed by hand. */
+.stamp {
+  transform: rotate(-4deg);
+  letter-spacing: 0;
+}
+.stamp[data-animate='true'] {
+  animation: stamp-press 360ms cubic-bezier(0.2, 0.9, 0.3, 1.2) 1;
+}
+@keyframes stamp-press {
+  0% {
+    opacity: 0;
+    transform: rotate(-9deg) scale(1.7);
+  }
+  70% {
+    opacity: 1;
+    transform: rotate(-4deg) scale(0.96);
+  }
+  100% {
+    transform: rotate(-4deg) scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stamp[data-animate='true'] {
+    animation: none;
+  }
+}
+
+/* Document figures: large, tabular, ink-dark. */
+.doc-number {
+  font-size: 2.25rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
 :focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
+}
+
+/* Data-visualization tokens (validated categorical slot 1 + chart chrome), light and dark. */
+.viz-root {
+  --viz-series-1: #2a78d6;
+  --viz-grid: #d3dae4;
+  --viz-axis: #b4bfce;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme='light'])) .viz-root {
+    --viz-series-1: #3987e5;
+    --viz-grid: #26304a;
+    --viz-axis: #34405e;
+  }
+}
+:root[data-theme='dark'] .viz-root {
+  --viz-series-1: #3987e5;
+  --viz-grid: #26304a;
+  --viz-axis: #34405e;
+}
+
+/* Printing a quote: light, chrome-free, regardless of the active theme. */
+@media print {
+  :root,
+  :root[data-theme='dark'] {
+    color-scheme: light;
+    --color-bg: #fff;
+    --color-surface: #fff;
+    --color-surface-2: #f4f4f4;
+    --color-border: #bbb;
+    --color-text: #000;
+    --color-text-muted: #444;
+  }
+  html,
+  body {
+    background: #fff;
+  }
+  .print-area {
+    border: 0;
+    padding: 0;
+  }
+  .stamp,
+  .stamp[data-animate='true'] {
+    animation: none;
+  }
 }

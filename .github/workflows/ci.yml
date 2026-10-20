@@ -15,6 +15,8 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     services:
       postgres:
         image: postgres:16-alpine
@@ -28,6 +30,7 @@ jobs:
           --health-timeout 3s --health-retries 10
     env:
       DATABASE_URL: postgresql://ishan:ishan@localhost:5432/ishan?schema=public
+      RUN_DB_TESTS: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -42,7 +45,21 @@ jobs:
           pnpm --filter @ishan/api exec prisma generate
           pnpm --filter @ishan/api exec prisma migrate deploy
       - run: pnpm typecheck
-      - run: pnpm test
+      - name: Test (posts a failure digest as a commit comment, since logs are not readable by agents)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          pnpm test 2>&1 | tee /tmp/test.log
+          code=${PIPESTATUS[0]}
+          if [ $code -ne 0 ]; then
+            { echo '### Test failure digest'; echo '```'; sed 's/\x1b\[[0-9;]*m//g' /tmp/test.log | grep -vE '^\s*$' | tail -120; echo '```'; } > /tmp/body.md
+            gh api repos/${{ github.repository }}/commits/${{ github.sha }}/comments -F body=@/tmp/body.md > /dev/null
+          else
+            { echo '### tests passed (database tests enabled)'; echo '```'; sed 's/\x1b\[[0-9;]*m//g' /tmp/test.log | grep -E '(Test Files|Tests |✓ |↓ |skipped)' | tail -80; echo '```'; } > /tmp/body.md
+            gh api repos/${{ github.repository }}/commits/${{ github.sha }}/comments -F body=@/tmp/body.md > /dev/null
+          fi
+          exit $code
       - run: pnpm build
 
   audit:
@@ -54,3 +71,107 @@ jobs:
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm audit --prod --audit-level=high
+
+  secrets:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Scan history for secrets (posts rule/file/line as a commit comment on failure)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.21.2 detect \
+            --source /repo --no-banner --redact --exit-code 1 \
+            --report-format json --report-path /repo/gitleaks.json
+          code=$?
+          if [ $code -ne 0 ] && [ -f gitleaks.json ]; then
+            { echo '### secret scan failed'; echo '```'; \
+              jq -r '.[] | "\(.RuleID) \(.File):\(.StartLine) \(.Commit[0:8])"' gitleaks.json | head -40; \
+              echo '```'; } > /tmp/body.md
+            gh api repos/${{ github.repository }}/commits/${{ github.sha }}/comments -F body=@/tmp/body.md > /dev/null
+          fi
+          exit $code
+
+  migration-drift:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ishan
+          POSTGRES_PASSWORD: ishan
+          POSTGRES_DB: ishan
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U ishan -d ishan" --health-interval 5s
+          --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ishan:ishan@localhost:5432/ishan?schema=public
+      SHADOW_DATABASE_URL: postgresql://ishan:ishan@localhost:5432/ishan_shadow?schema=public
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: PGPASSWORD=ishan psql -h localhost -U ishan -d ishan -c 'CREATE DATABASE ishan_shadow'
+      - name: Schema must match migrations (posts the missing SQL as a commit comment on drift)
+        run: |
+          set +e
+          cd apps/api
+          pnpm exec prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --script > /tmp/diff.sql 2> /tmp/diff.err
+          code=$?
+          if [ $code -eq 0 ] && grep -q "empty migration" /tmp/diff.sql; then echo "schema and migrations match"; exit 0; fi
+          { echo '### Prisma migration drift'; echo '```sql'; cat /tmp/diff.sql; echo '```'; echo '```'; cat /tmp/diff.err; echo '```'; } > /tmp/body.md
+          gh api repos/${{ github.repository }}/commits/${{ github.sha }}/comments -F body=@/tmp/body.md > /dev/null
+          exit 1
+
+  e2e:
+    name: e2e (docker compose + Playwright)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @ishan/contracts build && pnpm --filter @ishan/i18n build
+      - name: Start the full stack (postgres, migrate, api, web)
+        run: |
+          set +e
+          docker compose -f deploy/compose.dev.yml up --build -d --wait --wait-timeout 420 > /tmp/up.log 2>&1
+          code=$?
+          tail -40 /tmp/up.log
+          if [ $code -ne 0 ]; then
+            { echo '### docker compose up failed'; echo '```'; sed 's/\x1b\[[0-9;]*m//g' /tmp/up.log | tail -60; docker compose -f deploy/compose.dev.yml ps -a 2>&1 | tail -20; echo '---'; docker compose -f deploy/compose.dev.yml logs --no-color --tail=60 2>&1 | tail -150; echo '```'; } > /tmp/body.md
+            gh api repos/${{ github.repository }}/commits/${{ github.sha }}/comments -F body=@/tmp/body.md > /dev/null
+          fi
+          exit $code
+      - run: pnpm --filter @ishan/e2e exec playwright install --with-deps chromium
+      - name: Run browser tests (posts a digest on failure)
+        run: |
+          set +e
+          pnpm --filter @ishan/e2e e2e 2>&1 | tee /tmp/e2e.log
+          code=${PIPESTATUS[0]}
+          if [ $code -ne 0 ]; then
+            { echo '### e2e failure digest'; echo '```'; sed 's/\x1b\[[0-9;]*m//g' /tmp/e2e.log | grep -vE '^\s*$' | tail -120; echo '---api logs---'; docker compose -f deploy/compose.dev.yml logs --no-color --tail=40 api 2>&1 | tail -60; echo '```'; } > /tmp/body.md
+            gh api repos/${{ github.repository }}/commits/${{ github.sha }}/comments -F body=@/tmp/body.md > /dev/null
+          fi
+          if [ $code -eq 0 ]; then
+            { echo '### e2e passed'; echo '```'; sed 's/\x1b\[[0-9;]*m//g' /tmp/e2e.log | grep -vE '^\s*$' | tail -30; echo '```'; } > /tmp/body.md
+            gh api repos/${{ github.repository }}/commits/${{ github.sha }}/comments -F body=@/tmp/body.md > /dev/null
+          fi
+          exit $code
+      - if: always()
+        run: docker compose -f deploy/compose.dev.yml down -v

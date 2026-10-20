@@ -7,6 +7,7 @@ FROM base AS build
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc ./
 COPY apps/web/package.json apps/web/
 COPY packages/config/package.json packages/config/
+COPY packages/contracts/package.json packages/contracts/
 COPY packages/i18n/package.json packages/i18n/
 COPY packages/ui/package.json packages/ui/
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
@@ -15,7 +16,9 @@ COPY packages packages
 COPY apps/web apps/web
 ARG NEXT_PUBLIC_API_URL=/api/v1
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
-RUN pnpm --filter @ishan/i18n build && pnpm --filter @ishan/web build
+ARG API_INTERNAL_URL=http://api:4000
+ENV API_INTERNAL_URL=$API_INTERNAL_URL
+RUN pnpm --filter @ishan/contracts build && pnpm --filter @ishan/i18n build && pnpm --filter @ishan/web build
 
 FROM node:22-alpine AS runner
 ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0
