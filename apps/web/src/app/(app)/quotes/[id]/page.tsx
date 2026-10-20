@@ -178,7 +178,7 @@ export default function QuoteDetailPage() {
         </p>
       ) : null}
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_16rem]">
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[minmax(0,1fr)_16rem]">
         <article className="print-area flex flex-col gap-6 rounded-[var(--radius-sm)] border border-[var(--color-border)] border-t-[6px] border-t-[var(--color-brand)] bg-[var(--color-surface)] p-6 sm:p-8">
           <header className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0">
@@ -239,22 +239,20 @@ export default function QuoteDetailPage() {
               <tbody>
                 {q.items.map((i, idx) => (
                   <tr key={i.id} className="border-b border-[var(--color-border)]/60">
-                    <td className="px-2 py-3 text-[var(--color-text-muted)] tabular-nums">
+                    <td className="px-2 py-3 text-[var(--color-text-muted)]">
                       {formatNumber(idx + 1)}
                     </td>
                     <td className="px-2 py-3">{i.description}</td>
-                    <td className="px-2 py-3 text-end tabular-nums">{formatNumber(i.quantity)}</td>
-                    <td className="px-2 py-3 text-end tabular-nums">{toman(i.unitPrice)}</td>
-                    <td className="px-2 py-3 text-end font-semibold tabular-nums">
-                      {toman(i.lineTotal)}
-                    </td>
+                    <td className="px-2 py-3 text-end">{formatNumber(i.quantity)}</td>
+                    <td className="px-2 py-3 text-end">{toman(i.unitPrice)}</td>
+                    <td className="px-2 py-3 text-end font-semibold">{toman(i.lineTotal)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
-          <dl className="ms-auto grid w-full max-w-sm grid-cols-[1fr_auto] gap-x-6 gap-y-1.5 text-sm tabular-nums">
+          <dl className="ms-auto grid w-full max-w-sm grid-cols-[1fr_auto] gap-x-6 gap-y-1.5 text-sm">
             <dt className="text-[var(--color-text-muted)]">{fa.quotes.subtotal}</dt>
             <dd className="text-end">{toman(q.subtotal)}</dd>
             <dt className="text-[var(--color-text-muted)]">{fa.quotes.discount}</dt>
@@ -307,7 +305,7 @@ export default function QuoteDetailPage() {
                       {fa.quotes.version} {formatNumber(v.version)}
                     </span>{' '}
                     · {fa.quotes.statuses[v.status]}
-                    <span className="block tabular-nums text-[var(--color-text-muted)]">
+                    <span className="block text-[var(--color-text-muted)]">
                       {toman(v.total)} · {formatJalaliDate(v.issueDate)}
                     </span>
                   </Link>
