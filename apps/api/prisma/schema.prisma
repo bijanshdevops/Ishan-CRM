@@ -46,6 +46,25 @@ enum StageKind {
   @@map("stage_kind")
 }
 
+enum QuoteStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  SUPERSEDED
+
+  @@map("quote_status")
+}
+
+enum ContractStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  TERMINATED
+
+  @@map("contract_status")
+}
+
 enum ActivityType {
   CALL
   MEETING
@@ -90,6 +109,10 @@ model Organization {
   stages    PipelineStage[]
   deals     Deal[]
   activities Activity[]
+  products   Product[]
+  quotes     Quote[]
+  contracts  Contract[]
+  counters   DocumentCounter[]
 
   @@map("organizations")
 }
@@ -141,6 +164,9 @@ model User {
   ownedDeals     Deal[]
   assignedActivities Activity[] @relation("ActivityAssignee")
   createdActivities  Activity[] @relation("ActivityCreator")
+  ownedQuotes        Quote[]    @relation("QuoteOwner")
+  createdQuotes      Quote[]    @relation("QuoteCreator")
+  createdContracts   Contract[] @relation("ContractCreator")
 
   @@unique([organizationId, email])
   @@index([roleId])
@@ -247,6 +273,8 @@ model Customer {
   deals        Deal[]
   leads        Lead[]
   activities   Activity[]
+  quotes       Quote[]
+  contracts    Contract[]
 
   @@index([organizationId, id(sort: Desc)])
   @@index([organizationId, kind])
@@ -276,6 +304,7 @@ model Contact {
   customer     Customer?    @relation(fields: [customerId], references: [id], onDelete: Cascade)
   deals        Deal[]
   activities   Activity[]
+  quotes       Quote[]
 
   @@index([customerId])
   @@index([organizationId, id(sort: Desc)])
@@ -382,6 +411,7 @@ model Deal {
   owner        User?           @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   events       DealStageEvent[]
   activities   Activity[]
+  quotes       Quote[]
 
   @@index([organizationId, id(sort: Desc)])
   @@index([organizationId, stageId])
@@ -445,4 +475,141 @@ model Activity {
   @@index([customerId, completedAt(sort: Desc)], map: "activities_customer_completed_idx")
   @@index([dealId])
   @@map("activities")
+}
+
+/// Per-organization gap-free-by-transaction sequence for human document numbers.
+model DocumentCounter {
+  organizationId String @map("organization_id") @db.Uuid
+  kind           String
+  value          Int    @default(0)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@id([organizationId, kind])
+  @@map("document_counters")
+}
+
+/// Catalog item. Archived (active = false) rather than deleted so old quotes stay explainable.
+model Product {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  name           String
+  sku            String?
+  unit           String    @default("عدد")
+  /// Integer rials.
+  unitPrice      BigInt    @map("unit_price")
+  description    String?
+  active         Boolean   @default(true)
+  searchText     String    @default("") @map("search_text")
+  createdById    String?   @map("created_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  items        QuoteItem[]
+
+  @@unique([organizationId, sku])
+  @@index([organizationId, id(sort: Desc)])
+  @@map("products")
+}
+
+/// A quote (pre-invoice). `number` is shared by every version; a revision is a new row
+/// with version + 1 and the previous row becomes SUPERSEDED.
+model Quote {
+  id             String      @id @default(uuid(7)) @db.Uuid
+  organizationId String      @map("organization_id") @db.Uuid
+  /// Sequence value behind the human number (`QT-000012`).
+  seq            Int
+  version        Int         @default(1)
+  title          String
+  status         QuoteStatus @default(DRAFT)
+  customerId     String      @map("customer_id") @db.Uuid
+  contactId      String?     @map("contact_id") @db.Uuid
+  dealId         String?     @map("deal_id") @db.Uuid
+  ownerId        String?     @map("owner_id") @db.Uuid
+  createdById    String?     @map("created_by_id") @db.Uuid
+  issueDate      DateTime    @map("issue_date") @db.Date
+  validUntil     DateTime?   @map("valid_until") @db.Date
+  /// All amounts are integer rials.
+  subtotal       BigInt      @default(0)
+  discount       BigInt      @default(0)
+  taxRateBp      Int         @default(1000) @map("tax_rate_bp")
+  taxAmount      BigInt      @default(0) @map("tax_amount")
+  total          BigInt      @default(0)
+  notes          String?
+  terms          String?
+  searchText     String      @default("") @map("search_text")
+  sentAt         DateTime?   @map("sent_at") @db.Timestamptz(6)
+  decidedAt      DateTime?   @map("decided_at") @db.Timestamptz(6)
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?   @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  customer     Customer     @relation(fields: [customerId], references: [id])
+  contact      Contact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  deal         Deal?        @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  owner        User?        @relation("QuoteOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  createdBy    User?        @relation("QuoteCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  items        QuoteItem[]
+  contract     Contract?
+
+  @@unique([organizationId, seq, version], map: "quotes_org_seq_version_key")
+  @@index([organizationId, id(sort: Desc)])
+  @@index([customerId])
+  @@index([dealId])
+  @@index([organizationId, status])
+  @@map("quotes")
+}
+
+model QuoteItem {
+  id          String  @id @default(uuid(7)) @db.Uuid
+  quoteId     String  @map("quote_id") @db.Uuid
+  position    Int
+  productId   String? @map("product_id") @db.Uuid
+  description String
+  quantity    Int
+  /// Integer rials per unit.
+  unitPrice   BigInt  @map("unit_price")
+  lineTotal   BigInt  @map("line_total")
+
+  quote   Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([quoteId, position])
+  @@map("quote_items")
+}
+
+/// Created from an ACCEPTED quote; one contract per quote.
+model Contract {
+  id             String         @id @default(uuid(7)) @db.Uuid
+  organizationId String         @map("organization_id") @db.Uuid
+  seq            Int
+  title          String
+  status         ContractStatus @default(DRAFT)
+  customerId     String         @map("customer_id") @db.Uuid
+  quoteId        String         @unique @map("quote_id") @db.Uuid
+  /// Quote total at creation time (integer rials).
+  amount         BigInt
+  startDate      DateTime       @map("start_date") @db.Date
+  endDate        DateTime?      @map("end_date") @db.Date
+  terms          String?
+  searchText     String         @default("") @map("search_text")
+  createdById    String?        @map("created_by_id") @db.Uuid
+  signedAt       DateTime?      @map("signed_at") @db.Timestamptz(6)
+  closedAt       DateTime?      @map("closed_at") @db.Timestamptz(6)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?      @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  customer     Customer     @relation(fields: [customerId], references: [id])
+  quote        Quote        @relation(fields: [quoteId], references: [id])
+  createdBy    User?        @relation("ContractCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, seq], map: "contracts_org_seq_key")
+  @@index([organizationId, id(sort: Desc)])
+  @@index([customerId])
+  @@index([organizationId, status])
+  @@map("contracts")
 }

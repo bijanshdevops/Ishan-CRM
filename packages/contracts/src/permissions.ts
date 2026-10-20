@@ -28,6 +28,13 @@ export const PERMISSIONS = {
   /** Organization-wide dashboard scope and reports (others only see their own numbers). */
   REPORTS_READ: 'reports.read',
   REPORTS_EXPORT: 'reports.export',
+  PRODUCTS_READ: 'products.read',
+  PRODUCTS_WRITE: 'products.write',
+  QUOTES_READ: 'quotes.read',
+  QUOTES_WRITE: 'quotes.write',
+  QUOTES_DELETE: 'quotes.delete',
+  CONTRACTS_READ: 'contracts.read',
+  CONTRACTS_WRITE: 'contracts.write',
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -80,6 +87,13 @@ export const SYSTEM_ROLES: SystemRoleDefinition[] = [
       PERMISSIONS.ACTIVITIES_MANAGE_ALL,
       PERMISSIONS.REPORTS_READ,
       PERMISSIONS.REPORTS_EXPORT,
+      PERMISSIONS.PRODUCTS_READ,
+      PERMISSIONS.PRODUCTS_WRITE,
+      PERMISSIONS.QUOTES_READ,
+      PERMISSIONS.QUOTES_WRITE,
+      PERMISSIONS.QUOTES_DELETE,
+      PERMISSIONS.CONTRACTS_READ,
+      PERMISSIONS.CONTRACTS_WRITE,
     ],
   },
   {
@@ -98,6 +112,10 @@ export const SYSTEM_ROLES: SystemRoleDefinition[] = [
       PERMISSIONS.DEALS_WRITE,
       PERMISSIONS.ACTIVITIES_READ,
       PERMISSIONS.ACTIVITIES_WRITE,
+      PERMISSIONS.PRODUCTS_READ,
+      PERMISSIONS.QUOTES_READ,
+      PERMISSIONS.QUOTES_WRITE,
+      PERMISSIONS.CONTRACTS_READ,
     ],
   },
   {
@@ -109,6 +127,9 @@ export const SYSTEM_ROLES: SystemRoleDefinition[] = [
       PERMISSIONS.LEADS_READ,
       PERMISSIONS.DEALS_READ,
       PERMISSIONS.ACTIVITIES_READ,
+      PERMISSIONS.PRODUCTS_READ,
+      PERMISSIONS.QUOTES_READ,
+      PERMISSIONS.CONTRACTS_READ,
     ],
   },
 ];
