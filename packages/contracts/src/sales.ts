@@ -35,7 +35,8 @@ export const CreateLeadRequestSchema = z.object({
   company: optText(150),
   email: optEmail,
   phone: optPhone,
-  source: optText(60),
+  sourceId: z.string().uuid().nullable().optional(),
+  campaignId: z.string().uuid().nullable().optional(),
   notes: optText(4000),
   ownerId: z.string().uuid().nullable().optional(),
 });
@@ -52,7 +53,8 @@ export const UpdateLeadRequestSchema = z.object({
     .union([z.literal(''), PhoneSchema])
     .nullable()
     .optional(),
-  source: nullableText(60),
+  sourceId: z.string().uuid().nullable().optional(),
+  campaignId: z.string().uuid().nullable().optional(),
   notes: nullableText(4000),
   ownerId: z.string().uuid().nullable().optional(),
   status: z.enum(['NEW', 'CONTACTED', 'QUALIFIED', 'DISQUALIFIED']).optional(),
@@ -66,6 +68,8 @@ export const LeadListQuerySchema = z.object({
   q: z.string().trim().max(100).optional(),
   status: LeadStatusSchema.optional(),
   ownerId: z.string().uuid().optional(),
+  sourceId: z.string().uuid().optional(),
+  campaignId: z.string().uuid().optional(),
 });
 export type LeadListQuery = z.infer<typeof LeadListQuerySchema>;
 
@@ -96,7 +100,8 @@ export interface LeadDto {
   company: string | null;
   email: string | null;
   phone: string | null;
-  source: string | null;
+  source: { id: string; name: string } | null;
+  campaign: { id: string; name: string } | null;
   status: LeadStatus;
   owner: { id: string; name: string } | null;
   notes: string | null;

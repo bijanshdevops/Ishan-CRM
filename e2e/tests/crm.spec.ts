@@ -224,6 +224,43 @@ test.describe.serial('Ishan CRM end-to-end', () => {
     await a11y(page, '/contracts');
   });
 
+  test('campaigns: source, campaign, attributed lead and the return table', async ({ page }) => {
+    await loginAdmin(page);
+    await page.goto('/campaigns');
+    await a11y(page, '/campaigns');
+
+    await page.getByLabel(fa.campaigns.sourceName, { exact: true }).fill(`منبع آزمون ${run}`);
+    await page.getByRole('button', { name: fa.campaigns.addSource }).click();
+    await expect(page.getByText(fa.campaigns.sourceCreated)).toBeVisible();
+
+    await page.getByRole('button', { name: fa.campaigns.add }).click();
+    const dlg = page.getByRole('dialog');
+    await dlg.getByLabel(fa.campaigns.name, { exact: true }).fill(`کمپین آزمون ${run}`);
+    await dlg.getByLabel(fa.campaigns.budget, { exact: true }).fill('1000000');
+    await dlg.getByRole('button', { name: fa.common.save }).click();
+    await expect(page.getByText(fa.campaigns.created)).toBeVisible();
+
+    await page.goto('/leads');
+    await page.getByRole('button', { name: fa.leads.add }).click();
+    const lead = page.getByRole('dialog');
+    await lead.getByLabel(fa.common.name, { exact: true }).fill(`سرنخ کمپین ${run}`);
+    await lead
+      .getByLabel(fa.leads.source, { exact: true })
+      .selectOption({ label: `منبع آزمون ${run}` });
+    await lead
+      .getByLabel(fa.leads.campaign, { exact: true })
+      .selectOption({ label: `کمپین آزمون ${run}` });
+    await lead.getByRole('button', { name: fa.common.save }).click();
+    await expect(page.getByText(fa.leads.created)).toBeVisible();
+
+    await page.goto('/campaigns');
+    const roi = page.getByRole('region', { name: fa.campaigns.roiTitle });
+    const row = roi.getByRole('row', { name: new RegExp(`کمپین آزمون ${run}`) });
+    await expect(row.getByRole('cell').nth(2)).toHaveText('۱');
+    await expect(row).toContainText('٪');
+    await a11y(page, '/campaigns (with data)');
+  });
+
   test('dashboard: KPIs, org scope, table alternative, CSV export', async ({ page }) => {
     await loginAdmin(page);
     await page.goto('/');

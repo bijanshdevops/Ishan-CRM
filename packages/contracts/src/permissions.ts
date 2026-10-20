@@ -35,6 +35,9 @@ export const PERMISSIONS = {
   QUOTES_DELETE: 'quotes.delete',
   CONTRACTS_READ: 'contracts.read',
   CONTRACTS_WRITE: 'contracts.write',
+  CAMPAIGNS_READ: 'campaigns.read',
+  CAMPAIGNS_WRITE: 'campaigns.write',
+  CAMPAIGNS_DELETE: 'campaigns.delete',
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -94,6 +97,9 @@ export const SYSTEM_ROLES: SystemRoleDefinition[] = [
       PERMISSIONS.QUOTES_DELETE,
       PERMISSIONS.CONTRACTS_READ,
       PERMISSIONS.CONTRACTS_WRITE,
+      PERMISSIONS.CAMPAIGNS_READ,
+      PERMISSIONS.CAMPAIGNS_WRITE,
+      PERMISSIONS.CAMPAIGNS_DELETE,
     ],
   },
   {
@@ -116,6 +122,7 @@ export const SYSTEM_ROLES: SystemRoleDefinition[] = [
       PERMISSIONS.QUOTES_READ,
       PERMISSIONS.QUOTES_WRITE,
       PERMISSIONS.CONTRACTS_READ,
+      PERMISSIONS.CAMPAIGNS_READ,
     ],
   },
   {
@@ -130,6 +137,7 @@ export const SYSTEM_ROLES: SystemRoleDefinition[] = [
       PERMISSIONS.PRODUCTS_READ,
       PERMISSIONS.QUOTES_READ,
       PERMISSIONS.CONTRACTS_READ,
+      PERMISSIONS.CAMPAIGNS_READ,
     ],
   },
 ];

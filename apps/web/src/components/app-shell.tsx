@@ -13,6 +13,7 @@ const NAV = [
   { href: '/', label: fa.nav.home, permission: null },
   { href: '/customers', label: fa.nav.customers, permission: PERMISSIONS.CUSTOMERS_READ },
   { href: '/leads', label: fa.nav.leads, permission: PERMISSIONS.LEADS_READ },
+  { href: '/campaigns', label: fa.nav.campaigns, permission: PERMISSIONS.CAMPAIGNS_READ },
   { href: '/deals', label: fa.nav.deals, permission: PERMISSIONS.DEALS_READ },
   { href: '/products', label: fa.nav.products, permission: PERMISSIONS.PRODUCTS_READ },
   { href: '/quotes', label: fa.nav.quotes, permission: PERMISSIONS.QUOTES_READ },

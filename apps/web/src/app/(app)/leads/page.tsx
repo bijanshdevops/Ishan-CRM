@@ -1,12 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import {
   CreateLeadRequestSchema,
   PERMISSIONS,
+  type CampaignDto,
   type LeadDto,
+  type LeadSourceDto,
   type LeadStatus,
   type Page,
 } from '@ishan/contracts';
@@ -138,6 +140,7 @@ export default function LeadsPage() {
               fa.leads.company,
               fa.customers.phone,
               fa.leads.source,
+              fa.leads.campaign,
               fa.common.status,
               fa.customers.owner,
               fa.common.createdAt,
@@ -149,7 +152,8 @@ export default function LeadsPage() {
                 <Td>{l.name}</Td>
                 <Td>{l.company ?? '—'}</Td>
                 <Td className="text-end [direction:ltr]">{l.phone ?? '—'}</Td>
-                <Td>{l.source ?? '—'}</Td>
+                <Td>{l.source?.name ?? '—'}</Td>
+                <Td>{l.campaign?.name ?? '—'}</Td>
                 <Td>
                   {canWrite && l.status !== 'CONVERTED' ? (
                     <Select
@@ -227,15 +231,30 @@ function CreateLeadDialog({ onClose }: { onClose: () => void }) {
     company: '',
     email: '',
     phone: '',
-    source: '',
+    sourceId: '',
+    campaignId: '',
     notes: '',
+  });
+  const { can } = useAuth();
+  const sources = useQuery({
+    queryKey: ['lead-sources', 'active'],
+    queryFn: () => api<LeadSourceDto[]>('/lead-sources?activeOnly=true'),
+  });
+  const campaigns = useQuery({
+    queryKey: ['campaigns', 'options'],
+    enabled: can(PERMISSIONS.CAMPAIGNS_READ),
+    queryFn: () => api<Page<CampaignDto>>('/campaigns?limit=100'),
   });
   const [error, setError] = useState<string | null>(null);
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) =>
     setF((s) => ({ ...s, [k]: e.target.value }));
   const save = useMutation({
     mutationFn: () => {
-      const parsed = CreateLeadRequestSchema.safeParse(f);
+      const parsed = CreateLeadRequestSchema.safeParse({
+        ...f,
+        sourceId: f.sourceId || null,
+        campaignId: f.campaignId || null,
+      });
       if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? fa.common.error);
       return api('/leads', { method: 'POST', body: parsed.data });
     },
@@ -277,8 +296,31 @@ function CreateLeadDialog({ onClose }: { onClose: () => void }) {
           )}
         </Field>
         <Field label={fa.leads.source}>
-          {(p) => <Input {...p} value={f.source} onChange={set('source')} />}
+          {(p) => (
+            <Select {...p} value={f.sourceId} onChange={set('sourceId')}>
+              <option value="">—</option>
+              {(sources.data ?? []).map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </Select>
+          )}
         </Field>
+        {can(PERMISSIONS.CAMPAIGNS_READ) ? (
+          <Field label={fa.leads.campaign}>
+            {(p) => (
+              <Select {...p} value={f.campaignId} onChange={set('campaignId')}>
+                <option value="">—</option>
+                {(campaigns.data?.items ?? []).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+        ) : null}
         <Field label={fa.customers.notes}>
           {(p) => <Input {...p} value={f.notes} onChange={set('notes')} />}
         </Field>

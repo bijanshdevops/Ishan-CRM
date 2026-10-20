@@ -29,6 +29,8 @@ export class LeadsService {
         deletedAt: null,
         ...(q.status ? { status: q.status } : {}),
         ...(q.ownerId ? { ownerId: q.ownerId } : {}),
+        ...(q.sourceId ? { sourceId: q.sourceId } : {}),
+        ...(q.campaignId ? { campaignId: q.campaignId } : {}),
         ...(term ? { searchText: { contains: term } } : {}),
         ...(q.cursor ? { id: { lt: q.cursor } } : {}),
       },
@@ -58,8 +60,36 @@ export class LeadsService {
     if (!u) throw new BadRequestException({ code: 'INVALID_OWNER', message: 'مسئول نامعتبر است' });
   }
 
+  /** Validates that the source and campaign belong to the organization; returns the source name. */
+  private async assertRefs(
+    orgId: string,
+    sourceId?: string | null,
+    campaignId?: string | null,
+  ): Promise<string | null> {
+    let sourceName: string | null = null;
+    if (sourceId) {
+      const src = await this.prisma.leadSource.findFirst({
+        where: { id: sourceId, organizationId: orgId, active: true },
+        select: { name: true },
+      });
+      if (!src)
+        throw new BadRequestException({ code: 'INVALID_SOURCE', message: 'منبع سرنخ نامعتبر است' });
+      sourceName = src.name;
+    }
+    if (campaignId) {
+      const c = await this.prisma.campaign.findFirst({
+        where: { id: campaignId, organizationId: orgId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!c)
+        throw new BadRequestException({ code: 'INVALID_CAMPAIGN', message: 'کمپین نامعتبر است' });
+    }
+    return sourceName;
+  }
+
   async create(actor: AuthUser, dto: CreateLeadRequest, ip?: string) {
     await this.assertOwner(actor.organizationId, dto.ownerId);
+    const sourceName = await this.assertRefs(actor.organizationId, dto.sourceId, dto.campaignId);
     const lead = await this.prisma.lead.create({
       data: {
         organizationId: actor.organizationId,
@@ -67,11 +97,12 @@ export class LeadsService {
         company: dto.company ?? null,
         email: dto.email ?? null,
         phone: dto.phone ?? null,
-        source: dto.source ?? null,
+        sourceId: dto.sourceId ?? null,
+        campaignId: dto.campaignId ?? null,
         notes: dto.notes ?? null,
         ownerId: dto.ownerId ?? actor.id,
         createdById: actor.id,
-        searchText: leadSearchText(dto),
+        searchText: leadSearchText({ ...dto, sourceName }),
       },
     });
     await this.audit.record({
@@ -97,13 +128,26 @@ export class LeadsService {
       });
     }
     if (dto.ownerId !== undefined) await this.assertOwner(actor.organizationId, dto.ownerId);
+    const checkedName = await this.assertRefs(actor.organizationId, dto.sourceId, dto.campaignId);
+    const sourceName =
+      dto.sourceId === undefined
+        ? existing.sourceId
+          ? ((
+              await this.prisma.leadSource.findUnique({
+                where: { id: existing.sourceId },
+                select: { name: true },
+              })
+            )?.name ?? null)
+          : null
+        : checkedName;
     const blank = <T>(v: T | null | undefined) => (v === '' ? null : v);
     const next = {
       name: dto.name,
       company: blank(dto.company),
       email: blank(dto.email),
       phone: blank(dto.phone),
-      source: blank(dto.source),
+      sourceId: dto.sourceId,
+      campaignId: dto.campaignId,
       notes: blank(dto.notes),
       ownerId: dto.ownerId,
       status: dto.status,
@@ -113,7 +157,12 @@ export class LeadsService {
     const data = Object.fromEntries(Object.entries(next).filter(([, v]) => v !== undefined));
     await this.prisma.lead.update({
       where: { id },
-      data: { ...data, searchText: leadSearchText({ ...existing, ...data } as typeof existing) },
+      data: {
+        ...data,
+        searchText: leadSearchText({ ...existing, ...data, sourceName } as typeof existing & {
+          sourceName: string | null;
+        }),
+      },
     });
     await this.audit.record({
       organizationId: actor.organizationId,
