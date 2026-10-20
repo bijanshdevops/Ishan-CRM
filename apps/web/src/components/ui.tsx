@@ -166,7 +166,12 @@ export function ErrorBanner({ message, onRetry }: { message: string; onRetry?: (
 
 export function Skeleton({ rows = 5 }: { rows?: number }) {
   return (
-    <div aria-busy="true" aria-label={fa.common.loading} className="flex flex-col gap-2">
+    <div
+      role="status"
+      aria-busy="true"
+      aria-label={fa.common.loading}
+      className="flex flex-col gap-2"
+    >
       {Array.from({ length: rows }, (_, i) => (
         <div
           key={i}
