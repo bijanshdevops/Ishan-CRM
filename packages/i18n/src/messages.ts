@@ -341,6 +341,8 @@ export const PERMISSION_LABELS: Record<string, string> = {
   'activities.write': 'ثبت و ویرایش فعالیت‌های خود',
   'activities.delete': 'حذف فعالیت‌ها',
   'activities.manage_all': 'مدیریت فعالیت‌های همه کاربران',
+  'reports.read': 'مشاهده داشبورد و گزارش‌های کل سازمان',
+  'reports.export': 'خروجی گرفتن از گزارش‌ها',
 };
 
 export type Messages = typeof fa;

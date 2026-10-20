@@ -7,3 +7,4 @@ export * from './text';
 export * from './customers';
 export * from './sales';
 export * from './activities';
+export * from './reports';

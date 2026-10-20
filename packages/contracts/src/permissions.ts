@@ -25,6 +25,9 @@ export const PERMISSIONS = {
   ACTIVITIES_DELETE: 'activities.delete',
   /** Edit/complete/delete activities owned by other users. */
   ACTIVITIES_MANAGE_ALL: 'activities.manage_all',
+  /** Organization-wide dashboard scope and reports (others only see their own numbers). */
+  REPORTS_READ: 'reports.read',
+  REPORTS_EXPORT: 'reports.export',
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -75,6 +78,8 @@ export const SYSTEM_ROLES: SystemRoleDefinition[] = [
       PERMISSIONS.ACTIVITIES_WRITE,
       PERMISSIONS.ACTIVITIES_DELETE,
       PERMISSIONS.ACTIVITIES_MANAGE_ALL,
+      PERMISSIONS.REPORTS_READ,
+      PERMISSIONS.REPORTS_EXPORT,
     ],
   },
   {
