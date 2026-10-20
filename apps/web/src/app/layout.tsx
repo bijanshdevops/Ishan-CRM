@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import '@fontsource-variable/vazirmatn';
+import '@fontsource-variable/estedad';
 import { fa } from '@ishan/i18n';
 import { Providers } from '@/components/providers';
 import './globals.css';

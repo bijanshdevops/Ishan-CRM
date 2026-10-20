@@ -1,20 +1,24 @@
 /* Ishan design tokens — single source of truth for colour, type, space, radius, motion. */
 :root {
-  --font-sans: 'Vazirmatn', system-ui, 'Segoe UI', Tahoma, sans-serif;
+  --font-sans: 'Estedad Variable', 'Vazirmatn', system-ui, 'Segoe UI', Tahoma, sans-serif;
 
-  --color-bg: #f7f6f3;
-  --color-surface: #ffffff;
-  --color-surface-2: #efede8;
-  --color-border: #dcd8cf;
-  --color-text: #1b1a17;
-  --color-text-muted: #5f5b52;
-  --color-brand: #0f5c4d;
+  /* Carbon-copy paper, ink and stamp colours (docs/adr/0007-visual-direction.md). */
+  --color-bg: #e9eef3;
+  --color-surface: #fbfcfd;
+  --color-surface-2: #dfe6ee;
+  --color-border: #98a5b7;
+  --color-text: #17203a;
+  --color-text-muted: #4a5568;
+  --color-brand: #1b2a55;
   --color-brand-contrast: #ffffff;
-  --color-accent: #c2742b;
-  --color-success: #1d7a4a;
-  --color-warning: #a36a00;
-  --color-danger: #b3322a;
-  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--color-brand) 45%, transparent);
+  --color-accent: #b0233f;
+  --color-success: #1b6b4f;
+  --color-warning: #8a5a00;
+  --color-danger: #b0233f;
+  --color-stamp-blue: #2447a8;
+  --color-stamp-red: #b0233f;
+  --color-stamp-ink: #4a5568;
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--color-stamp-blue) 55%, transparent);
 
   --space-1: 4px;
   --space-2: 8px;
@@ -23,9 +27,10 @@
   --space-6: 24px;
   --space-8: 32px;
 
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
+  /* Paper has corners, not pills. */
+  --radius-sm: 2px;
+  --radius-md: 3px;
+  --radius-lg: 4px;
 
   --text-sm: 0.875rem;
   --text-base: 1rem;
@@ -37,18 +42,21 @@
 }
 
 :root[data-theme='dark'] {
-  --color-bg: #121512;
-  --color-surface: #1a1e1a;
-  --color-surface-2: #232823;
-  --color-border: #343a33;
-  --color-text: #eeece6;
-  --color-text-muted: #a7a398;
-  --color-brand: #4cc2a6;
-  --color-brand-contrast: #0b1512;
-  --color-accent: #e59a55;
-  --color-success: #5ccb8d;
+  --color-bg: #0e1424;
+  --color-surface: #151c30;
+  --color-surface-2: #1d2640;
+  --color-border: #4a5778;
+  --color-text: #e6eaf4;
+  --color-text-muted: #a3adc4;
+  --color-brand: #9db8ff;
+  --color-brand-contrast: #0e1424;
+  --color-accent: #f07c90;
+  --color-success: #5ccb9d;
   --color-warning: #e0b04a;
-  --color-danger: #f0766d;
+  --color-danger: #f07c90;
+  --color-stamp-blue: #9db8ff;
+  --color-stamp-red: #f07c90;
+  --color-stamp-ink: #a3adc4;
 }
 
 @media (prefers-reduced-motion: reduce) {

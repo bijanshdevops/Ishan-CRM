@@ -196,14 +196,17 @@ test.describe.serial('Ishan CRM end-to-end', () => {
     await page.getByRole('button', { name: fa.common.save }).click();
     await expect(page.getByText(fa.quotes.created)).toBeVisible();
     await expect(page).toHaveURL(/\/quotes\/[0-9a-f-]{36}$/);
-    await expect(page.getByRole('heading', { name: /QT-\d{6}/ })).toBeVisible();
+    await expect(page.getByTestId('doc-number')).toHaveText(/QT-\d{6}/);
+    await expect(page.getByTestId('stamp')).toHaveAttribute('data-status', 'DRAFT');
     await a11y(page, '/quotes/[id]');
 
     // send → accept → contract
     await page.getByRole('button', { name: fa.quotes.send }).click();
     await expect(page.getByText(fa.quotes.transitioned)).toBeVisible();
     await expect(page.getByText(fa.quotes.lockedHint)).toBeVisible();
+    await expect(page.getByTestId('stamp')).toHaveAttribute('data-status', 'SENT');
     await page.getByRole('button', { name: fa.quotes.accept }).click();
+    await expect(page.getByTestId('stamp')).toHaveAttribute('data-status', 'ACCEPTED');
     await page.getByRole('button', { name: fa.quotes.createContract }).click();
     await expect(page).toHaveURL(/\/contracts\/[0-9a-f-]{36}$/);
     await expect(page.getByRole('heading', { name: /CT-\d{6}/ })).toBeVisible();
