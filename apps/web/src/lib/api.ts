@@ -16,16 +16,42 @@ export class ApiClientError extends Error {
   }
 }
 
+/**
+ * ETags of single entities this tab has read, keyed by path. A PATCH sends the tag it last saw
+ * (`If-Match`), so saving a stale form fails with 412 instead of overwriting a colleague's edit.
+ */
+const etags = new Map<string, string>();
+const entityKey = (path: string) => path.split('?')[0]!;
+const entityRoot = (path: string) => entityKey(path).split('/').slice(0, 3).join('/');
+
+/** @internal exported for tests */
+export function resetEtags(): void {
+  etags.clear();
+}
+
 export async function api<T = unknown>(
   path: string,
   init: { method?: string; body?: unknown } = {},
 ): Promise<T> {
+  const method = init.method ?? 'GET';
+  const headers: Record<string, string> = {};
+  if (init.body !== undefined) headers['Content-Type'] = 'application/json';
+  const known = method === 'PATCH' ? etags.get(entityKey(path)) : undefined;
+  if (known) headers['If-Match'] = known;
   const res = await fetch(`${apiBaseUrl()}${path}`, {
-    method: init.method ?? 'GET',
+    method,
     credentials: 'include',
-    headers: init.body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
+    headers: Object.keys(headers).length > 0 ? headers : undefined,
     body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
   });
+  if (res.ok && method !== 'GET') {
+    // Any write may move updated_at of the entity or its children: forget what we knew.
+    const root = entityRoot(path);
+    for (const key of [...etags.keys()])
+      if (key === root || key.startsWith(`${root}/`)) etags.delete(key);
+  }
+  const tag = res.headers?.get?.('etag');
+  if (res.ok && tag && (method === 'GET' || method === 'PATCH')) etags.set(entityKey(path), tag);
   if (res.status === 204) return undefined as T;
   const text = await res.text();
   const data = text ? (JSON.parse(text) as unknown) : undefined;

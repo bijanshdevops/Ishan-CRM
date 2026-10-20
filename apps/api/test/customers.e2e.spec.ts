@@ -29,8 +29,9 @@ describe.skipIf(!run)('customers (database)', () => {
     url: string,
     who: string | null,
     body?: unknown,
+    extra: Record<string, string> = {},
   ): Promise<Res> {
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = { ...extra };
     if (who) headers.cookie = cookies[who]!;
     if (method !== 'GET') headers.origin = ORIGIN;
     const res = await app.inject({
@@ -252,6 +253,50 @@ describe.skipIf(!run)('customers (database)', () => {
     expect(res.text).toContain('kind,name');
     expect(res.text).toContain(`"'=HYPERLINK(""http://evil"")"`);
     expect(res.text).not.toMatch(/(^|,)=HYPERLINK/m);
+  });
+
+  it('guards concurrent edits with ETag / If-Match', async () => {
+    const created = await call('POST', '/customers', 'cust-sales', {
+      kind: 'PERSON',
+      name: 'همزمانی آزمون',
+    });
+    expect(created.status).toBe(201);
+    const id = created.body.id as string;
+    const first = await call('GET', `/customers/${id}`, 'cust-sales');
+    const tag = first.headers.etag as string;
+    expect(tag).toMatch(/^"\d+"$/);
+
+    // someone else saves first
+    await new Promise((r) => setTimeout(r, 5));
+    const other = await call('PATCH', `/customers/${id}`, 'cust-manager', { name: 'نسخه دیگر' });
+    expect(other.status).toBe(200);
+
+    // the stale form is refused and nothing is overwritten
+    const stale = await call(
+      'PATCH',
+      `/customers/${id}`,
+      'cust-sales',
+      { name: 'قدیمی' },
+      { 'if-match': tag },
+    );
+    expect(stale.status).toBe(412);
+    expect(stale.body.error.code).toBe('STALE_ENTITY');
+    expect((await call('GET', `/customers/${id}`, 'cust-sales')).body.name).toBe('نسخه دیگر');
+
+    // with the fresh tag (or none) the write goes through and the tag moves on
+    const fresh = other.headers.etag as string;
+    const ok = await call(
+      'PATCH',
+      `/customers/${id}`,
+      'cust-sales',
+      { name: 'جدید' },
+      { 'if-match': fresh },
+    );
+    expect(ok.status).toBe(200);
+    expect(ok.headers.etag).not.toBe(fresh);
+    expect((await call('PATCH', `/customers/${id}`, 'cust-sales', { city: 'تهران' })).status).toBe(
+      200,
+    );
   });
 
   it('soft-deletes with the delete permission only', async () => {

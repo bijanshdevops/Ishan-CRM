@@ -1,8 +1,9 @@
 import { Module } from '@nestjs/common';
-import { APP_FILTER } from '@nestjs/core';
+import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
 import { randomUUID } from 'node:crypto';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
+import { EtagInterceptor } from './common/etag';
 import { loadConfig } from './config';
 import { InfraModule } from './infra/infra.module';
 import { ActivitiesModule } from './modules/activities/activities.module';
@@ -46,6 +47,9 @@ const config = loadConfig();
     QuotesModule,
     MarketingModule,
   ],
-  providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
+  providers: [
+    { provide: APP_FILTER, useClass: AllExceptionsFilter },
+    { provide: APP_INTERCEPTOR, useClass: EtagInterceptor },
+  ],
 })
 export class AppModule {}

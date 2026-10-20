@@ -1,3 +1,4 @@
+import { assertIfMatch } from '../../common/etag';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type {
   ConvertLeadRequest,
@@ -116,11 +117,12 @@ export class LeadsService {
     return this.get(actor, lead.id);
   }
 
-  async update(actor: AuthUser, id: string, dto: UpdateLeadRequest, ip?: string) {
+  async update(actor: AuthUser, id: string, dto: UpdateLeadRequest, ip?: string, ifMatch?: string) {
     const existing = await this.prisma.lead.findFirst({
       where: { id, organizationId: actor.organizationId, deletedAt: null },
     });
     if (!existing) throw new NotFoundException('سرنخ یافت نشد');
+    assertIfMatch(ifMatch, existing.updatedAt);
     if (existing.status === 'CONVERTED') {
       throw new BadRequestException({
         code: 'LEAD_CONVERTED',

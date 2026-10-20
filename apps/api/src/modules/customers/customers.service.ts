@@ -1,3 +1,4 @@
+import { assertIfMatch } from '../../common/etag';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type {
   CreateCustomerRequest,
@@ -107,11 +108,18 @@ export class CustomersService {
     return this.get(actor, created.id);
   }
 
-  async update(actor: AuthUser, id: string, dto: UpdateCustomerRequest, ip?: string) {
+  async update(
+    actor: AuthUser,
+    id: string,
+    dto: UpdateCustomerRequest,
+    ip?: string,
+    ifMatch?: string,
+  ) {
     const existing = await this.prisma.customer.findFirst({
       where: { id, organizationId: actor.organizationId, deletedAt: null },
     });
     if (!existing) throw new NotFoundException('مشتری یافت نشد');
+    assertIfMatch(ifMatch, existing.updatedAt);
     if (dto.ownerId !== undefined) await this.assertOwner(actor.organizationId, dto.ownerId);
 
     const next = {
