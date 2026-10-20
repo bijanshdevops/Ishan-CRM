@@ -125,7 +125,7 @@ test.describe.serial('Ishan CRM end-to-end', () => {
     await note.getByLabel(fa.activities.noteText, { exact: true }).fill(`یادداشت آزمون ${run}`);
     await note.getByRole('button', { name: fa.common.save }).click();
     await expect(page.getByText(fa.activities.created)).toBeVisible();
-    await expect(page.getByText(`یادداشت آزمون ${run}`)).toBeVisible();
+    await expect(page.getByRole('listitem').getByText(`یادداشت آزمون ${run}`)).toBeVisible();
 
     // logged call with an outcome → history
     await page.getByRole('button', { name: fa.activities.addCall }).click();

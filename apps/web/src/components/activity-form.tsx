@@ -168,9 +168,9 @@ export function ActivityFormDialog({
     },
     onSuccess: async (a) => {
       toast(editing ? fa.activities.updated : fa.activities.created);
-      await refresh();
       onSaved?.(a);
       onClose();
+      await refresh();
     },
     onError: (e) => setError(msg(e)),
   });
