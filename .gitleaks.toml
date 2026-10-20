@@ -5,7 +5,7 @@ useDefault = true
 
 # Dev-only compose secrets and test fixtures are deliberate and public.
 # Real secrets never belong in these files; production reads them from the environment.
-[[allowlists]]
+[allowlist]
 description = "Dev compose placeholders and e2e test fixtures"
 paths = [
   '''deploy/compose\.dev\.yml''',
