@@ -16,7 +16,9 @@ function NewQuote() {
       <PageHeader title={fa.quotes.add} />
       <Card>
         <QuoteForm
-          presetCustomer={customerId && customerName ? { id: customerId, name: customerName } : undefined}
+          presetCustomer={
+            customerId && customerName ? { id: customerId, name: customerName } : undefined
+          }
           onSaved={(q) => router.push(`/quotes/${q.id}`)}
           onCancel={() => router.push('/quotes')}
         />

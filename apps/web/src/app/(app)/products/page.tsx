@@ -2,11 +2,7 @@
 
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import {
-  PERMISSIONS,
-  type Page,
-  type ProductDto,
-} from '@ishan/contracts';
+import { PERMISSIONS, type Page, type ProductDto } from '@ishan/contracts';
 import { fa, formatMoney } from '@ishan/i18n';
 import { useToast } from '@/components/toast';
 import {
@@ -67,7 +63,9 @@ export default function ProductsPage() {
       <PageHeader
         title={fa.products.title}
         actions={
-          canWrite ? <Button onClick={() => setEditing('new')}>{fa.products.add}</Button> : undefined
+          canWrite ? (
+            <Button onClick={() => setEditing('new')}>{fa.products.add}</Button>
+          ) : undefined
         }
       />
       <form
@@ -159,7 +157,12 @@ export default function ProductsPage() {
           </div>
         ) : null}
       </Card>
-      {editing ? <ProductDialog product={editing === 'new' ? null : editing} onClose={() => setEditing(null)} /> : null}
+      {editing ? (
+        <ProductDialog
+          product={editing === 'new' ? null : editing}
+          onClose={() => setEditing(null)}
+        />
+      ) : null}
     </>
   );
 }
@@ -215,7 +218,9 @@ function ProductDialog({ product, onClose }: { product: ProductDto | null; onClo
             {(p) => <Input {...p} dir="ltr" value={sku} onChange={(e) => setSku(e.target.value)} />}
           </Field>
           <Field label={fa.products.unit}>
-            {(p) => <Input {...p} required value={unit} onChange={(e) => setUnit(e.target.value)} />}
+            {(p) => (
+              <Input {...p} required value={unit} onChange={(e) => setUnit(e.target.value)} />
+            )}
           </Field>
         </div>
         <Field label={fa.products.unitPrice}>

@@ -60,7 +60,10 @@ export function JalaliDateField({
   };
 
   return (
-    <fieldset className="flex flex-col gap-1.5" aria-describedby={error ? `${legendId}-err` : undefined}>
+    <fieldset
+      className="flex flex-col gap-1.5"
+      aria-describedby={error ? `${legendId}-err` : undefined}
+    >
       <legend id={legendId} className="mb-1.5 text-sm font-medium">
         {label}
       </legend>

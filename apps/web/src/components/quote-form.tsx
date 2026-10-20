@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import {
   DEFAULT_TAX_RATE_BP,
   calculateQuoteTotals,
+  type QuoteTotals,
   type DealDto,
   type Page,
   type ProductDto,
@@ -28,6 +29,21 @@ interface Row {
   quantity: string;
   unitPrice: string; // toman
 }
+
+type Parsed =
+  | { problem: string }
+  | {
+      problem?: undefined;
+      items: {
+        productId: string | null;
+        description: string;
+        quantity: number;
+        unitPrice: bigint;
+      }[];
+      disc: bigint;
+      taxRateBp: number;
+      totals: QuoteTotals;
+    };
 
 let rowKey = 0;
 const blankRow = (): Row => ({
@@ -90,13 +106,15 @@ export function QuoteForm({
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
 
   /** Parsed state for submission and live preview; `problem` is a user-facing message. */
-  const parsed = useMemo(() => {
+  const parsed = useMemo<Parsed>(() => {
     const items = [];
     for (const [idx, r] of rows.entries()) {
       const qty = Number(r.quantity);
       const price = tomanInputToRial(r.unitPrice);
-      if (!r.description.trim()) return { problem: `${fa.quotes.description} (${formatNumber(idx + 1)})` };
-      if (!Number.isInteger(qty) || qty < 1) return { problem: `${fa.quotes.quantity} (${formatNumber(idx + 1)})` };
+      if (!r.description.trim())
+        return { problem: `${fa.quotes.description} (${formatNumber(idx + 1)})` };
+      if (!Number.isInteger(qty) || qty < 1)
+        return { problem: `${fa.quotes.quantity} (${formatNumber(idx + 1)})` };
       if (price === null) return { problem: `${fa.quotes.unitPrice} (${formatNumber(idx + 1)})` };
       items.push({
         productId: r.productId,
@@ -121,7 +139,7 @@ export function QuoteForm({
   const save = useMutation({
     mutationFn: () => {
       if (!customerId) throw new Error(fa.quotes.customer);
-      if (!('items' in parsed)) throw new Error(parsed.problem);
+      if (parsed.problem !== undefined) throw new Error(parsed.problem);
       const body = {
         title,
         customerId,
@@ -146,7 +164,7 @@ export function QuoteForm({
     onError: (e) => setError(msg(e)),
   });
 
-  const totals = 'totals' in parsed ? parsed.totals : null;
+  const totals = parsed.problem === undefined ? parsed.totals : null;
 
   return (
     <form
@@ -170,7 +188,12 @@ export function QuoteForm({
       />
       <Field label={fa.quotes.deal}>
         {(p) => (
-          <Select {...p} value={dealId} onChange={(e) => setDealId(e.target.value)} disabled={!customerId}>
+          <Select
+            {...p}
+            value={dealId}
+            onChange={(e) => setDealId(e.target.value)}
+            disabled={!customerId}
+          >
             <option value="">{fa.quotes.noDeal}</option>
             {deals.data?.items.map((d) => (
               <option key={d.id} value={d.id}>
@@ -185,7 +208,12 @@ export function QuoteForm({
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <JalaliDateField label={fa.quotes.issueDate} value={issueDate} onChange={setIssueDate} />
-        <JalaliDateField label={fa.quotes.validUntil} value={validUntil} onChange={setValidUntil} optional />
+        <JalaliDateField
+          label={fa.quotes.validUntil}
+          value={validUntil}
+          onChange={setValidUntil}
+          optional
+        />
       </div>
 
       <fieldset className="flex flex-col gap-3">
@@ -204,13 +232,16 @@ export function QuoteForm({
                   value={r.productId ?? ''}
                   onChange={(e) => {
                     const prod = products.data?.items.find((x) => x.id === e.target.value);
-                    update(r.key, prod
-                      ? {
-                          productId: prod.id,
-                          description: prod.name,
-                          unitPrice: rialToTomanInput(prod.unitPrice),
-                        }
-                      : { productId: null });
+                    update(
+                      r.key,
+                      prod
+                        ? {
+                            productId: prod.id,
+                            description: prod.name,
+                            unitPrice: rialToTomanInput(prod.unitPrice),
+                          }
+                        : { productId: null },
+                    );
                   }}
                 >
                   <option value="">{fa.quotes.fromProduct}</option>
@@ -252,7 +283,11 @@ export function QuoteForm({
           );
         })}
         <div>
-          <Button type="button" variant="secondary" onClick={() => setRows((rs) => [...rs, blankRow()])}>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setRows((rs) => [...rs, blankRow()])}
+          >
             {fa.quotes.addItem}
           </Button>
         </div>
@@ -260,10 +295,24 @@ export function QuoteForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label={fa.quotes.discount}>
-          {(p) => <Input {...p} inputMode="numeric" value={discount} onChange={(e) => setDiscount(e.target.value)} />}
+          {(p) => (
+            <Input
+              {...p}
+              inputMode="numeric"
+              value={discount}
+              onChange={(e) => setDiscount(e.target.value)}
+            />
+          )}
         </Field>
         <Field label={fa.quotes.taxRate}>
-          {(p) => <Input {...p} inputMode="decimal" value={taxPercent} onChange={(e) => setTaxPercent(e.target.value)} />}
+          {(p) => (
+            <Input
+              {...p}
+              inputMode="decimal"
+              value={taxPercent}
+              onChange={(e) => setTaxPercent(e.target.value)}
+            />
+          )}
         </Field>
       </div>
 
@@ -283,7 +332,7 @@ export function QuoteForm({
             <dd className="font-bold">{formatMoney(totals.total, 'toman')}</dd>
           </dl>
         ) : (
-          <p className="text-[var(--color-danger)]">{'problem' in parsed ? parsed.problem : ''}</p>
+          <p className="text-[var(--color-danger)]">{parsed.problem ?? ''}</p>
         )}
       </section>
 
@@ -291,7 +340,9 @@ export function QuoteForm({
         {(p) => <Textarea {...p} value={notes} onChange={(e) => setNotes(e.target.value)} />}
       </Field>
       <Field label={fa.quotes.terms}>
-        {(p) => <Textarea {...p} rows={4} value={terms} onChange={(e) => setTerms(e.target.value)} />}
+        {(p) => (
+          <Textarea {...p} rows={4} value={terms} onChange={(e) => setTerms(e.target.value)} />
+        )}
       </Field>
 
       {error ? <ErrorBanner message={error} /> : null}
