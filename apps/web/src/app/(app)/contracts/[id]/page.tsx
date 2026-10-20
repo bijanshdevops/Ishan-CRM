@@ -7,9 +7,9 @@ import { useState } from 'react';
 import { PERMISSIONS, type ContractDto } from '@ishan/contracts';
 import { fa, formatJalaliDate, formatJalaliDateTime, formatMoney } from '@ishan/i18n';
 import { JalaliDateField } from '@/components/jalali-date-field';
+import { Stamp } from '@/components/stamp';
 import { useToast } from '@/components/toast';
 import {
-  Badge,
   Button,
   Card,
   ErrorBanner,
@@ -21,7 +21,6 @@ import {
 } from '@/components/ui';
 import { ApiClientError, api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { CONTRACT_TONE } from '../page';
 
 const msg = (e: unknown) =>
   e instanceof ApiClientError || e instanceof Error ? e.message : fa.common.error;
@@ -105,7 +104,7 @@ export default function ContractDetailPage() {
             <div>
               <dt className="text-[var(--color-text-muted)]">{fa.contracts.status}</dt>
               <dd>
-                <Badge tone={CONTRACT_TONE[c.status]}>{fa.contracts.statuses[c.status]}</Badge>
+                <Stamp status={c.status} scope="contract" />
               </dd>
             </div>
             <div>
@@ -118,7 +117,7 @@ export default function ContractDetailPage() {
             </div>
             <div>
               <dt className="text-[var(--color-text-muted)]">{fa.contracts.amount}</dt>
-              <dd className="tabular-nums">{formatMoney(BigInt(c.amount), 'toman')}</dd>
+              <dd className="">{formatMoney(BigInt(c.amount), 'toman')}</dd>
             </div>
             <div>
               <dt className="text-[var(--color-text-muted)]">{fa.contracts.quote}</dt>

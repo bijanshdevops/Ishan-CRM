@@ -73,7 +73,7 @@ export function ReminderBell() {
           <path d="M10 20a2 2 0 0 0 4 0" />
         </svg>
         {items.length > 0 ? (
-          <span className="absolute -top-0.5 end-0 min-w-4 rounded-full bg-[var(--color-danger)] px-1 text-[10px] leading-4 text-white">
+          <span className="absolute -top-0.5 end-0 min-w-4 rounded-full bg-[var(--color-danger)] px-1 text-[10px] leading-4 text-[var(--color-brand-contrast)]">
             {formatNumber(items.length)}
           </span>
         ) : null}

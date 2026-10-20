@@ -58,20 +58,20 @@ html {
 /* Data-visualization tokens (validated categorical slot 1 + chart chrome), light and dark. */
 .viz-root {
   --viz-series-1: #2a78d6;
-  --viz-grid: #e1e0d9;
-  --viz-axis: #c3c2b7;
+  --viz-grid: #d3dae4;
+  --viz-axis: #b4bfce;
 }
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme='light'])) .viz-root {
     --viz-series-1: #3987e5;
-    --viz-grid: #2c2c2a;
-    --viz-axis: #383835;
+    --viz-grid: #26304a;
+    --viz-axis: #34405e;
   }
 }
 :root[data-theme='dark'] .viz-root {
   --viz-series-1: #3987e5;
-  --viz-grid: #2c2c2a;
-  --viz-axis: #383835;
+  --viz-grid: #26304a;
+  --viz-axis: #34405e;
 }
 
 /* Printing a quote: light, chrome-free, regardless of the active theme. */
