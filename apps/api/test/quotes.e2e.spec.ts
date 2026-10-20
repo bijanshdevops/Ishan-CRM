@@ -104,7 +104,8 @@ describe.skipIf(!run)('products, quotes and contracts (database)', () => {
         data: {
           organizationId: org.id,
           customerId: otherCustomerId,
-          name: 'مخاطب دیگر',
+          firstName: 'مخاطب',
+          lastName: 'دیگر',
           searchText: 'مخاطب دیگر',
           createdById: userIds['q-manager'],
         },

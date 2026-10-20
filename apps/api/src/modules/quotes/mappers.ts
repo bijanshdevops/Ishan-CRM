@@ -34,7 +34,7 @@ export const toProductDto = (p: {
 
 export const quoteInclude = {
   customer: { select: { id: true, name: true } },
-  contact: { select: { id: true, name: true } },
+  contact: { select: { id: true, firstName: true, lastName: true } },
   deal: { select: { id: true, title: true } },
   owner: { select: { id: true, name: true } },
   items: { orderBy: { position: 'asc' } },
@@ -53,7 +53,9 @@ export function toQuoteDto(q: QuoteRow, latestVersion: number, today = tehranTod
     status: q.status as QuoteStatus,
     expired: q.status === 'SENT' && validUntil !== null && validUntil < today,
     customer: q.customer,
-    contact: q.contact,
+    contact: q.contact
+      ? { id: q.contact.id, name: `${q.contact.firstName} ${q.contact.lastName}`.trim() }
+      : null,
     deal: q.deal,
     owner: q.owner,
     issueDate: day(q.issueDate)!,
