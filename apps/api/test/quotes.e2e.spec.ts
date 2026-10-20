@@ -107,7 +107,6 @@ describe.skipIf(!run)('products, quotes and contracts (database)', () => {
           firstName: 'مخاطب',
           lastName: 'دیگر',
           searchText: 'مخاطب دیگر',
-          createdById: userIds['q-manager'],
         },
       })
     ).id;
