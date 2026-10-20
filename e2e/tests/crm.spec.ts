@@ -167,6 +167,60 @@ test.describe.serial('Ishan CRM end-to-end', () => {
     await expect(page.getByText(fa.activities.remindersEmpty)).toBeVisible();
   });
 
+  test('quote lifecycle: product, quote, send, accept, contract, print view', async ({ page }) => {
+    await loginAdmin(page);
+
+    // catalog
+    await page.goto('/products');
+    await a11y(page, '/products');
+    await page.getByRole('button', { name: fa.products.add }).click();
+    const prod = page.getByRole('dialog');
+    await prod.getByLabel(fa.products.name, { exact: true }).fill(`خدمت آزمون ${run}`);
+    await prod.getByLabel(fa.products.unitPrice, { exact: true }).fill('1000000');
+    await prod.getByRole('button', { name: fa.common.save }).click();
+    await expect(page.getByText(fa.products.created)).toBeVisible();
+
+    // quote: 2 x 1,000,000 toman = 2,000,000 + 10% tax = 2,200,000
+    await page.goto('/quotes/new');
+    await a11y(page, '/quotes/new');
+    await page.getByLabel(fa.quotes.quoteTitle, { exact: true }).fill(`پیشنهاد آزمون ${run}`);
+    await page.getByLabel(fa.deals.customerSearch).fill(`شرکت آزمون ${run}`);
+    await page
+      .getByLabel(fa.deals.customer, { exact: true })
+      .selectOption({ label: `شرکت آزمون ${run}` });
+    await page
+      .getByLabel(`${fa.quotes.fromProduct} (۱)`)
+      .selectOption({ label: `خدمت آزمون ${run}` });
+    await page.getByLabel(`${fa.quotes.quantity} (۱)`).fill('2');
+    await expect(page.getByRole('region', { name: fa.quotes.preview })).toContainText('۲٬۲۰۰٬۰۰۰');
+    await page.getByRole('button', { name: fa.common.save }).click();
+    await expect(page.getByText(fa.quotes.created)).toBeVisible();
+    await expect(page).toHaveURL(/\/quotes\/[0-9a-f-]{36}$/);
+    await expect(page.getByRole('heading', { name: /QT-\d{6}/ })).toBeVisible();
+    await a11y(page, '/quotes/[id]');
+
+    // send → accept → contract
+    await page.getByRole('button', { name: fa.quotes.send }).click();
+    await expect(page.getByText(fa.quotes.transitioned)).toBeVisible();
+    await expect(page.getByText(fa.quotes.lockedHint)).toBeVisible();
+    await page.getByRole('button', { name: fa.quotes.accept }).click();
+    await page.getByRole('button', { name: fa.quotes.createContract }).click();
+    await expect(page).toHaveURL(/\/contracts\/[0-9a-f-]{36}$/);
+    await expect(page.getByRole('heading', { name: /CT-\d{6}/ })).toBeVisible();
+    await page.getByRole('button', { name: fa.contracts.activate }).click();
+    await expect(page.getByText(fa.contracts.transitioned)).toBeVisible();
+    await expect(page.getByText(fa.contracts.statuses.ACTIVE).first()).toBeVisible();
+    await a11y(page, '/contracts/[id]');
+
+    // lists
+    await page.goto('/quotes');
+    await expect(page.getByText(`پیشنهاد آزمون ${run}`)).toBeVisible();
+    await a11y(page, '/quotes');
+    await page.goto('/contracts');
+    await expect(page.getByText(`پیشنهاد آزمون ${run}`)).toBeVisible();
+    await a11y(page, '/contracts');
+  });
+
   test('dashboard: KPIs, org scope, table alternative, CSV export', async ({ page }) => {
     await loginAdmin(page);
     await page.goto('/');
