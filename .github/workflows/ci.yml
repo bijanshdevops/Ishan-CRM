@@ -72,6 +72,30 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm audit --prod --audit-level=high
 
+  secrets:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Scan history for secrets (posts rule/file/line as a commit comment on failure)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.21.2 detect \
+            --source /repo --no-banner --redact --exit-code 1 \
+            --report-format json --report-path /repo/gitleaks.json
+          code=$?
+          if [ $code -ne 0 ] && [ -f gitleaks.json ]; then
+            { echo '### secret scan failed'; echo '```'; \
+              jq -r '.[] | "\(.RuleID) \(.File):\(.StartLine) \(.Commit[0:8])"' gitleaks.json | head -40; \
+              echo '```'; } > /tmp/body.md
+            gh api repos/${{ github.repository }}/commits/${{ github.sha }}/comments -F body=@/tmp/body.md > /dev/null
+          fi
+          exit $code
+
   migration-drift:
     runs-on: ubuntu-latest
     permissions:
