@@ -46,6 +46,15 @@ enum StageKind {
   @@map("stage_kind")
 }
 
+enum CampaignStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+  CANCELED
+
+  @@map("campaign_status")
+}
+
 enum QuoteStatus {
   DRAFT
   SENT
@@ -113,6 +122,8 @@ model Organization {
   quotes     Quote[]
   contracts  Contract[]
   counters   DocumentCounter[]
+  leadSources LeadSource[]
+  campaigns   Campaign[]
 
   @@map("organizations")
 }
@@ -167,6 +178,8 @@ model User {
   ownedQuotes        Quote[]    @relation("QuoteOwner")
   createdQuotes      Quote[]    @relation("QuoteCreator")
   createdContracts   Contract[] @relation("ContractCreator")
+  ownedCampaigns     Campaign[] @relation("CampaignOwner")
+  createdCampaigns   Campaign[] @relation("CampaignCreator")
 
   @@unique([organizationId, email])
   @@index([roleId])
@@ -344,7 +357,8 @@ model Lead {
   company             String?
   email               String?
   phone               String?
-  source              String?
+  sourceId            String?    @map("source_id") @db.Uuid
+  campaignId          String?    @map("campaign_id") @db.Uuid
   status              LeadStatus @default(NEW)
   ownerId             String?    @map("owner_id") @db.Uuid
   createdById         String?    @map("created_by_id") @db.Uuid
@@ -361,11 +375,59 @@ model Lead {
   organization      Organization @relation(fields: [organizationId], references: [id])
   owner             User?        @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   convertedCustomer Customer?    @relation(fields: [convertedCustomerId], references: [id], onDelete: SetNull)
+  source            LeadSource?  @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  campaign          Campaign?    @relation(fields: [campaignId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, id(sort: Desc)])
   @@index([organizationId, status])
   @@index([ownerId])
+  @@index([sourceId])
+  @@index([campaignId])
   @@map("leads")
+}
+
+/// Where a lead came from (website, referral, ...). Configuration list; deactivated, never deleted.
+model LeadSource {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  name           String
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  leads        Lead[]
+
+  @@unique([organizationId, name])
+  @@map("lead_sources")
+}
+
+/// A marketing campaign. Leads are attributed through `leads.campaign_id`.
+model Campaign {
+  id             String         @id @default(uuid(7)) @db.Uuid
+  organizationId String         @map("organization_id") @db.Uuid
+  name           String
+  channel        String?
+  status         CampaignStatus @default(PLANNED)
+  startDate      DateTime?      @map("start_date") @db.Date
+  endDate        DateTime?      @map("end_date") @db.Date
+  /// Integer rials.
+  budget         BigInt         @default(0)
+  ownerId        String?        @map("owner_id") @db.Uuid
+  createdById    String?        @map("created_by_id") @db.Uuid
+  notes          String?
+  searchText     String         @default("") @map("search_text")
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?      @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  owner        User?        @relation("CampaignOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  createdBy    User?        @relation("CampaignCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  leads        Lead[]
+
+  @@index([organizationId, id(sort: Desc)])
+  @@index([organizationId, status])
+  @@map("campaigns")
 }
 
 model PipelineStage {

@@ -2,6 +2,8 @@ import { ForbiddenException, Injectable } from '@nestjs/common';
 import type { Prisma } from '../../generated/prisma/client';
 import type {
   ActivityType,
+  CampaignRoiRowDto,
+  LeadSourceRowDto,
   DashboardDto,
   DashboardQuery,
   LeadStatus,
@@ -9,7 +11,7 @@ import type {
   SalesPerformanceDto,
   SalesPerformanceRowDto,
 } from '@ishan/contracts';
-import { DEFAULT_REPORT_DAYS, PERMISSIONS } from '@ishan/contracts';
+import { DEFAULT_REPORT_DAYS, PERMISSIONS, roiBasisPoints } from '@ishan/contracts';
 import type { AuthUser } from '../../common/decorators';
 import { PrismaService } from '../../infra/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -32,6 +34,103 @@ export class ReportsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
   ) {}
+
+  /**
+   * Return on each campaign over its whole life: leads attributed to it, how many converted, and
+   * the total of the won deals those leads opened, against the budget.
+   */
+  async campaignRoi(actor: AuthUser): Promise<CampaignRoiRowDto[]> {
+    const campaigns = await this.prisma.campaign.findMany({
+      where: { organizationId: actor.organizationId, deletedAt: null },
+      select: { id: true, name: true, status: true, budget: true },
+      orderBy: { id: 'desc' },
+      take: 500,
+    });
+    if (campaigns.length === 0) return [];
+    const leads = await this.prisma.lead.findMany({
+      where: {
+        organizationId: actor.organizationId,
+        deletedAt: null,
+        campaignId: { in: campaigns.map((c) => c.id) },
+      },
+      select: { campaignId: true, status: true, convertedDealId: true },
+      take: WON_SERIES_CAP,
+    });
+    const dealIds = leads.flatMap((l) => (l.convertedDealId ? [l.convertedDealId] : []));
+    const won = dealIds.length
+      ? await this.prisma.deal.findMany({
+          where: {
+            id: { in: dealIds },
+            organizationId: actor.organizationId,
+            deletedAt: null,
+            stage: { kind: 'WON' },
+          },
+          select: { id: true, amount: true },
+        })
+      : [];
+    const wonById = new Map(won.map((d) => [d.id, d.amount]));
+    return campaigns.map((c) => {
+      const mine = leads.filter((l) => l.campaignId === c.id);
+      let wonAmount = 0n;
+      let wonDeals = 0;
+      for (const l of mine) {
+        const amount = l.convertedDealId ? wonById.get(l.convertedDealId) : undefined;
+        if (amount !== undefined) {
+          wonAmount += amount;
+          wonDeals += 1;
+        }
+      }
+      return {
+        campaignId: c.id,
+        name: c.name,
+        status: c.status,
+        budget: c.budget.toString(),
+        leads: mine.length,
+        converted: mine.filter((l) => l.status === 'CONVERTED').length,
+        wonDeals,
+        wonAmount: wonAmount.toString(),
+        costPerLead: mine.length > 0 ? (c.budget / BigInt(mine.length)).toString() : null,
+        roiBp: roiBasisPoints(wonAmount, c.budget),
+      };
+    });
+  }
+
+  /** Leads created in the range, grouped by source, with their conversion rate. */
+  async leadSources(actor: AuthUser, q: ReportQuery): Promise<LeadSourceRowDto[]> {
+    const { from, to } = this.range(q);
+    const [sources, leads] = await Promise.all([
+      this.prisma.leadSource.findMany({
+        where: { organizationId: actor.organizationId },
+        select: { id: true, name: true },
+      }),
+      this.prisma.lead.groupBy({
+        by: ['sourceId', 'status'],
+        where: {
+          organizationId: actor.organizationId,
+          deletedAt: null,
+          createdAt: { gte: from, lt: to },
+        },
+        _count: { _all: true },
+      }),
+    ]);
+    const names = new Map(sources.map((s) => [s.id, s.name]));
+    const rows = new Map<string | null, { leads: number; converted: number }>();
+    for (const g of leads) {
+      const row = rows.get(g.sourceId) ?? { leads: 0, converted: 0 };
+      row.leads += g._count._all;
+      if (g.status === 'CONVERTED') row.converted += g._count._all;
+      rows.set(g.sourceId, row);
+    }
+    return [...rows.entries()]
+      .map(([sourceId, r]) => ({
+        sourceId,
+        name: sourceId ? (names.get(sourceId) ?? '—') : '',
+        leads: r.leads,
+        converted: r.converted,
+        conversionBp: r.leads > 0 ? Math.floor((r.converted * 10_000) / r.leads) : 0,
+      }))
+      .sort((a, b) => b.leads - a.leads);
+  }
 
   private range(q: { from?: string; to?: string }): { from: Date; to: Date } {
     const to = q.to ? new Date(q.to) : new Date();

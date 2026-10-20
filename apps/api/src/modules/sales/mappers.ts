@@ -15,7 +15,11 @@ export const toStageDto = (s: {
   kind: s.kind,
 });
 
-export const leadInclude = { owner: { select: { id: true, name: true } } } as const;
+export const leadInclude = {
+  owner: { select: { id: true, name: true } },
+  source: { select: { id: true, name: true } },
+  campaign: { select: { id: true, name: true } },
+} as const;
 
 export function toLeadDto(l: {
   id: string;
@@ -23,7 +27,8 @@ export function toLeadDto(l: {
   company: string | null;
   email: string | null;
   phone: string | null;
-  source: string | null;
+  source: { id: string; name: string } | null;
+  campaign: { id: string; name: string } | null;
   status: LeadDto['status'];
   owner: { id: string; name: string } | null;
   notes: string | null;
@@ -40,6 +45,7 @@ export function toLeadDto(l: {
     email: l.email,
     phone: l.phone,
     source: l.source,
+    campaign: l.campaign,
     status: l.status,
     owner: l.owner,
     notes: l.notes,
@@ -56,10 +62,10 @@ export function leadSearchText(l: {
   company?: string | null;
   email?: string | null;
   phone?: string | null;
-  source?: string | null;
+  sourceName?: string | null;
 }): string {
   return normalizeText(
-    [l.name, l.company, l.email, l.phone && normalizePhone(l.phone), l.source]
+    [l.name, l.company, l.email, l.phone && normalizePhone(l.phone), l.sourceName]
       .filter(Boolean)
       .join(' '),
   );
