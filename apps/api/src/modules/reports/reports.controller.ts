@@ -38,6 +38,22 @@ export class ReportsController {
     return this.reports.salesPerformance(actor, q);
   }
 
+  /** Campaign return on investment (whole life of each campaign). */
+  @Get('reports/campaigns')
+  @RequirePermission(PERMISSIONS.REPORTS_READ, PERMISSIONS.CAMPAIGNS_READ)
+  campaignRoi(@CurrentUser() actor: AuthUser) {
+    return this.reports.campaignRoi(actor);
+  }
+
+  @Get('reports/lead-sources')
+  @RequirePermission(PERMISSIONS.REPORTS_READ, PERMISSIONS.LEADS_READ)
+  leadSources(
+    @CurrentUser() actor: AuthUser,
+    @Query(new ZodValidationPipe(ReportQuerySchema)) q: Infer<typeof ReportQuerySchema>,
+  ) {
+    return this.reports.leadSources(actor, q);
+  }
+
   @Get('reports/sales-performance.csv')
   @RequirePermission(PERMISSIONS.REPORTS_READ, PERMISSIONS.REPORTS_EXPORT)
   @Header('Content-Type', 'text/csv; charset=utf-8')

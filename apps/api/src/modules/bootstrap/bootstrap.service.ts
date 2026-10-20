@@ -1,5 +1,10 @@
 import { Inject, Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
-import { DEFAULT_STAGES, PasswordSchema, SYSTEM_ROLES } from '@ishan/contracts';
+import {
+  DEFAULT_LEAD_SOURCES,
+  DEFAULT_STAGES,
+  PasswordSchema,
+  SYSTEM_ROLES,
+} from '@ishan/contracts';
 import { APP_CONFIG, type AppConfig } from '../../config';
 import { PrismaService } from '../../infra/prisma.service';
 import { PasswordService } from '../auth/password.service';
@@ -60,6 +65,14 @@ export class BootstrapService implements OnApplicationBootstrap {
     if (stageCount === 0) {
       await this.prisma.pipelineStage.createMany({
         data: DEFAULT_STAGES.map((s, position) => ({ organizationId: org.id, position, ...s })),
+      });
+    }
+
+    // Default lead sources (configuration, editable by admins) - only when none exist.
+    const sourceCount = await this.prisma.leadSource.count({ where: { organizationId: org.id } });
+    if (sourceCount === 0) {
+      await this.prisma.leadSource.createMany({
+        data: DEFAULT_LEAD_SOURCES.map((name) => ({ organizationId: org.id, name })),
       });
     }
 
