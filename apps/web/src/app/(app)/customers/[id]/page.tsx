@@ -107,6 +107,14 @@ export default function CustomerPage() {
         title={c.name}
         actions={
           <div className="flex gap-2">
+            {can(PERMISSIONS.QUOTES_WRITE) ? (
+              <Link
+                href={`/quotes/new?customerId=${c.id}&customerName=${encodeURIComponent(c.name)}`}
+                className="inline-flex min-h-10 items-center rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 text-sm font-medium hover:bg-[var(--color-surface-2)]"
+              >
+                {fa.quotes.add}
+              </Link>
+            ) : null}
             {canWrite ? (
               <Button variant="secondary" onClick={() => setEditing(true)}>
                 {fa.common.edit}
