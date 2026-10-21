@@ -151,8 +151,12 @@ test.describe.serial('Ishan CRM end-to-end', () => {
     // reopen the deal, then win it again: the second move raises the event the workflow listens to
     await page.goto('/deals');
     const picker = page.getByLabel(`${fa.deals.moveTo}: فرصت آزمون ${run}`);
+    const reopened = await picker.locator('option').nth(1).getAttribute('value');
     await picker.selectOption({ index: 1 });
     await expect(page.getByText(fa.deals.moved)).toBeVisible();
+    // the select is controlled: only once the board shows the new stage does choosing "won" again
+    // count as a change (React ignores a change to the value it still holds)
+    await expect(picker).toHaveValue(reopened!);
     await picker.selectOption({ label: 'برنده شد' });
 
     // the worker processes the event asynchronously; the bell picks it up on load
