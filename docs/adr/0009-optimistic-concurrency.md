@@ -11,19 +11,22 @@ overwrites the first. A CRM is edited by teams, so this must be detected, not ho
 
 - Every single-entity response that carries `id` and `updatedAt` gets an `ETag` header
   (`"<updated_at epoch ms>"`), added by one global interceptor. No new column: `updated_at`
-  already changes on every write.
+  already changes on every write. `LeadDto` gained `updatedAt` for this.
 - `PATCH /customers/:id`, `/leads/:id` and `/deals/:id` honour `If-Match`. A stale tag answers
-  `412` with code `STALE_ENTITY`; a missing header or `*` keeps last-write-wins, so API clients
-  and scripts do not break.
-- The web client remembers the tag of each entity it read (`GET`/`PATCH`) and sends it on the next
-  `PATCH`; any other successful write to the entity or its children forgets the tag so the user's
-  own actions never cause a false conflict.
+  `412` with code `STALE_ENTITY`; a missing header, an empty one or `*` keeps last-write-wins, so
+  API clients and scripts do not break.
+- The check is also part of the write itself: with a concrete tag the UPDATE runs as
+  `WHERE id = … AND updated_at ∈ [seen, seen + 1 ms)` and zero affected rows means 412. Two
+  writers racing on the same tag therefore cannot both succeed. The one-millisecond window absorbs
+  the microseconds PostgreSQL may hold beyond a JS `Date` (rows written by raw SQL).
+- The web client sends the `updatedAt` of the entity the form was opened with as `version`, which
+  `api()` turns into `If-Match`. This works for forms opened from list data too, so no extra read
+  of the detail endpoint is needed. Customer edit, deal edit and lead status change use it.
 
 ## Consequences
 
-- Pages that edit from list data without reading the detail endpoint send no `If-Match` and stay
-  last-write-wins until they read the entity; moving them to the detail read is incremental.
-- The check is read-then-write inside one request, not a database compare-and-set, so a conflict
-  in the few milliseconds between the two is still possible. Closing that window needs
-  `UPDATE … WHERE updated_at = $tag`, tracked as a follow-up.
+- Other PATCH endpoints (contacts, tags, products, campaigns, users, activities) are not guarded
+  yet; adding one is a `ifMatch` parameter plus the same two helpers.
 - Quotes and contracts already version explicitly and are out of scope.
+- Tests: unit (`etag.spec.ts`, `api.test.ts`) and database tests for customers, leads and deals,
+  including a two-writer race on one tag.

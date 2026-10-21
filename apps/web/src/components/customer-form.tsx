@@ -65,6 +65,7 @@ export function CustomerFormDialog({
         );
         return api<{ id: string }>(`/customers/${customer.id}`, {
           method: 'PATCH',
+          version: customer.updatedAt,
           body: { ...body, ...(ownerId ? { ownerId } : {}) },
         });
       }

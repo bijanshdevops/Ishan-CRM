@@ -37,6 +37,7 @@ export function toLeadDto(l: {
   convertedCustomerId: string | null;
   convertedDealId: string | null;
   createdAt: Date;
+  updatedAt: Date;
 }): LeadDto {
   return {
     id: l.id,
@@ -54,6 +55,7 @@ export function toLeadDto(l: {
     convertedCustomerId: l.convertedCustomerId,
     convertedDealId: l.convertedDealId,
     createdAt: l.createdAt.toISOString(),
+    updatedAt: l.updatedAt.toISOString(),
   };
 }
 

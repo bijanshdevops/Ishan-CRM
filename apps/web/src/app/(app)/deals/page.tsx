@@ -324,7 +324,7 @@ function DealDialog({
         notes: notes.trim(),
       };
       return deal
-        ? api(`/deals/${deal.id}`, { method: 'PATCH', body })
+        ? api(`/deals/${deal.id}`, { method: 'PATCH', body, version: deal.updatedAt })
         : api('/deals', { method: 'POST', body: { ...body, customerId } });
     },
     onSuccess: async () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { afterEach, vi } from 'vitest';
-import { api, apiBaseUrl, resetEtags } from './api';
+import { api, apiBaseUrl, etagFor } from './api';
 
 describe('apiBaseUrl', () => {
   it('defaults to the same-origin proxy and trims trailing slashes', () => {
@@ -12,32 +12,23 @@ describe('apiBaseUrl', () => {
 });
 
 describe('If-Match', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    resetEtags();
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('turns the version the user saw into the server tag (epoch ms, quoted)', () => {
+    expect(etagFor('2026-10-20T10:00:00.123Z')).toBe(`"${Date.parse('2026-10-20T10:00:00.123Z')}"`);
   });
-  const reply = (body: unknown, etag?: string) =>
-    new Response(JSON.stringify(body), {
-      status: 200,
-      headers: etag ? { etag } : undefined,
-    });
 
-  it('sends the tag read earlier on PATCH, then the fresh one, and drops it after other writes', async () => {
-    const seen: Array<string | undefined> = [];
-    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
-      const h = new Headers(init?.headers);
-      if (init?.method === 'PATCH') seen.push(h.get('If-Match') ?? undefined);
-      if (init?.method === 'PATCH') return reply({ id: 'x' }, '"2"');
-      if (init?.method === 'POST') return reply({ id: 'x' });
-      return reply({ id: 'x' }, '"1"');
-    });
-    vi.stubGlobal('fetch', fetchMock);
-
-    await api('/customers/x');
-    await api('/customers/x', { method: 'PATCH', body: { name: 'a' } });
-    await api('/customers/x', { method: 'PATCH', body: { name: 'b' } });
-    await api('/customers/x/tags', { method: 'POST', body: {} });
-    await api('/customers/x', { method: 'PATCH', body: { name: 'c' } });
-    expect(seen).toEqual(['"1"', '"2"', undefined]);
+  it('sends If-Match only when a version is given', async () => {
+    const seen: Array<string | null> = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        seen.push(new Headers(init?.headers).get('If-Match'));
+        return new Response('{}', { status: 200 });
+      }),
+    );
+    await api('/customers/x', { method: 'PATCH', body: {}, version: '2026-10-20T10:00:00.123Z' });
+    await api('/customers/x', { method: 'PATCH', body: {} });
+    expect(seen).toEqual([etagFor('2026-10-20T10:00:00.123Z'), null]);
   });
 });

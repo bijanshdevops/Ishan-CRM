@@ -19,22 +19,39 @@ export function etagOf(updatedAt: Date | string): string {
  * last-write-wins); when present it must equal the current ETag or the write is refused with 412,
  * so a stale form can never silently overwrite someone else's change.
  */
+/** True when the client sent a concrete tag (absent, empty and `*` mean "no precondition"). */
+export function hasPrecondition(ifMatch: string | undefined): ifMatch is string {
+  return ifMatch !== undefined && ifMatch.trim() !== '' && ifMatch.trim() !== '*';
+}
+
 export function assertIfMatch(ifMatch: string | undefined, current: Date): void {
-  if (ifMatch === undefined || ifMatch.trim() === '' || ifMatch.trim() === '*') return;
+  if (!hasPrecondition(ifMatch)) return;
   const supplied = ifMatch
     .split(',')
     .map((v) => v.trim().replace(/^W\//, ''))
     .filter(Boolean);
-  if (!supplied.includes(etagOf(current))) {
-    throw new HttpException(
-      {
-        code: 'STALE_ENTITY',
-        message:
-          'این رکورد در این فاصله توسط شخص دیگری تغییر کرده است. صفحه را تازه کنید و دوباره تلاش کنید.',
-      },
-      HttpStatus.PRECONDITION_FAILED,
-    );
-  }
+  if (!supplied.includes(etagOf(current))) throw staleEntity();
+}
+
+/** 412 STALE_ENTITY, shared by the early check and the atomic write guard. */
+export function staleEntity(): HttpException {
+  return new HttpException(
+    {
+      code: 'STALE_ENTITY',
+      message:
+        'این رکورد در این فاصله توسط شخص دیگری تغییر کرده است. صفحه را تازه کنید و دوباره تلاش کنید.',
+    },
+    HttpStatus.PRECONDITION_FAILED,
+  );
+}
+
+/**
+ * Compare-and-set condition for the UPDATE itself. A one-millisecond window absorbs the
+ * microseconds PostgreSQL may hold beyond what a JS Date can carry, so rows written by raw SQL
+ * (migrations, seeds) still match.
+ */
+export function unchangedSince(updatedAt: Date): { updatedAt: { gte: Date; lt: Date } } {
+  return { updatedAt: { gte: updatedAt, lt: new Date(updatedAt.getTime() + 1) } };
 }
 
 /** Adds `ETag` to every single-entity response that carries an `id` and an `updatedAt`. */

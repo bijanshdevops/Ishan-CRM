@@ -69,13 +69,14 @@ export default function LeadsPage() {
   const canWrite = can(PERMISSIONS.LEADS_WRITE);
 
   const setLeadStatus = useMutation({
-    mutationFn: ({ id, status: st }: { id: string; status: string }) => {
+    mutationFn: ({ id, status: st, version }: { id: string; status: string; version: string }) => {
       let reason: string | undefined;
       if (st === 'DISQUALIFIED') {
         reason = window.prompt(fa.leads.disqualifyReason) ?? undefined;
       }
       return api(`/leads/${id}`, {
         method: 'PATCH',
+        version,
         body: { status: st, ...(reason ? { disqualifyReason: reason } : {}) },
       });
     },
@@ -159,7 +160,13 @@ export default function LeadsPage() {
                     <Select
                       aria-label={fa.common.status}
                       value={l.status}
-                      onChange={(e) => setLeadStatus.mutate({ id: l.id, status: e.target.value })}
+                      onChange={(e) =>
+                        setLeadStatus.mutate({
+                          id: l.id,
+                          status: e.target.value,
+                          version: l.updatedAt,
+                        })
+                      }
                     >
                       {(['NEW', 'CONTACTED', 'QUALIFIED', 'DISQUALIFIED'] as const).map((s) => (
                         <option key={s} value={s}>

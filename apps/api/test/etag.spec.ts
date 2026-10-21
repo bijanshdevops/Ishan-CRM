@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { HttpException } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
-import { assertIfMatch, etagOf } from '../src/common/etag';
+import { assertIfMatch, etagOf, hasPrecondition, unchangedSince } from '../src/common/etag';
 
 describe('etag', () => {
   const t = new Date('2026-10-20T10:00:00.123Z');
@@ -29,5 +29,18 @@ describe('etag', () => {
       expect((e as HttpException).getStatus()).toBe(412);
       expect(((e as HttpException).getResponse() as { code: string }).code).toBe('STALE_ENTITY');
     }
+  });
+
+  it('treats absent, empty and * as no precondition', () => {
+    expect(hasPrecondition(undefined)).toBe(false);
+    expect(hasPrecondition(' ')).toBe(false);
+    expect(hasPrecondition('*')).toBe(false);
+    expect(hasPrecondition('"1"')).toBe(true);
+  });
+
+  it('builds a one-millisecond compare-and-set window around updatedAt', () => {
+    const w = unchangedSince(t).updatedAt;
+    expect(w.gte.getTime()).toBe(t.getTime());
+    expect(w.lt.getTime()).toBe(t.getTime() + 1);
   });
 });

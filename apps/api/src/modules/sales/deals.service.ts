@@ -1,4 +1,4 @@
-import { assertIfMatch } from '../../common/etag';
+import { assertIfMatch, hasPrecondition, staleEntity, unchangedSince } from '../../common/etag';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type {
   CreateDealRequest,
@@ -172,7 +172,12 @@ export class DealsService {
       notes: dto.notes === '' ? null : dto.notes,
     };
     const clean = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined));
-    await this.prisma.deal.update({ where: { id }, data: clean });
+    const written = await this.prisma.deal.updateMany({
+      where: { id, ...(hasPrecondition(ifMatch) ? unchangedSince(existing.updatedAt) : {}) },
+      data: clean,
+    });
+    if (written.count === 0)
+      throw hasPrecondition(ifMatch) ? staleEntity() : new NotFoundException('فرصت یافت نشد');
     await this.audit.record({
       organizationId: actor.organizationId,
       actorId: actor.id,
