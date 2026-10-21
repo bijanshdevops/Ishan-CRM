@@ -160,6 +160,8 @@ model User {
   status             UserStatus @default(ACTIVE)
   mustChangePassword Boolean    @default(false) @map("must_change_password")
   mfaEnabled         Boolean    @default(false) @map("mfa_enabled")
+  /// Set when the owner proved they control `email` (ADR 0014); any future e-mail change must null it.
+  emailVerifiedAt    DateTime?  @map("email_verified_at") @db.Timestamptz(6)
   /// AES-256-GCM encrypted TOTP secret (base64 iv.tag.ciphertext)
   mfaSecretEnc       String?    @map("mfa_secret_enc")
   failedLoginCount   Int        @default(0) @map("failed_login_count")
@@ -175,6 +177,7 @@ model User {
   memberships  TeamMember[]
   notificationPreference NotificationPreference?
   emailDeliveries        EmailDelivery[]
+  emailVerificationTokens EmailVerificationToken[]
   ownedCustomers Customer[]
   ownedLeads     Lead[]
   ownedDeals     Deal[]
@@ -867,4 +870,22 @@ model EmailDelivery {
   @@index([userId, createdAt])
   @@index([createdAt])
   @@map("email_deliveries")
+}
+
+/// One-time proof of control of an e-mail address (ADR 0014). Only the SHA-256 of the token is stored.
+model EmailVerificationToken {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  /// The address the link was sent to; the token is void if the user's address has changed since.
+  email     String
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("email_verification_tokens")
 }

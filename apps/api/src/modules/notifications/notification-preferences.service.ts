@@ -15,33 +15,38 @@ import type { AuthUser } from '../../common/decorators';
 import { RateLimiter } from '../../common/rate-limiter';
 import { APP_CONFIG, type AppConfig } from '../../config';
 import { PrismaService } from '../../infra/prisma.service';
-import { createSmtpTransport, type MailTransport } from '../../jobs/emails';
-
-export const MAIL_TRANSPORT = Symbol('MAIL_TRANSPORT');
+import { MailerService } from './mailer.service';
 
 @Injectable()
 export class NotificationPreferencesService {
   private readonly testLimiter = new RateLimiter(EMAIL_TEST_PER_HOUR, 60 * 60 * 1000);
-  private transport: MailTransport | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
-    @Inject(MAIL_TRANSPORT) private readonly injected: MailTransport | null,
+    private readonly mailer: MailerService,
   ) {}
 
   private get available(): boolean {
-    return Boolean(this.config.SMTP_HOST);
+    return this.mailer.available;
   }
 
   async get(actor: AuthUser): Promise<NotificationPreferencesDto> {
-    const pref = await this.prisma.notificationPreference.findUnique({
-      where: { userId: actor.id },
-      select: { emailEnabled: true },
-    });
+    const [pref, user] = await Promise.all([
+      this.prisma.notificationPreference.findUnique({
+        where: { userId: actor.id },
+        select: { emailEnabled: true },
+      }),
+      this.prisma.user.findUniqueOrThrow({
+        where: { id: actor.id },
+        select: { emailVerifiedAt: true },
+      }),
+    ]);
+    const verified = user.emailVerifiedAt !== null;
     return {
       emailAvailable: this.available,
-      emailEnabled: this.available && (pref?.emailEnabled ?? false),
+      emailVerified: verified,
+      emailEnabled: this.available && verified && (pref?.emailEnabled ?? false),
       email: actor.email,
     };
   }
@@ -56,6 +61,7 @@ export class NotificationPreferencesService {
         message: 'ارسال ایمیل در این سامانه پیکربندی نشده است.',
       });
     }
+    if (input.emailEnabled) await this.requireVerified(actor);
     await this.prisma.notificationPreference.upsert({
       where: { userId: actor.id },
       create: { userId: actor.id, emailEnabled: input.emailEnabled },
@@ -72,16 +78,15 @@ export class NotificationPreferencesService {
         message: 'ارسال ایمیل در این سامانه پیکربندی نشده است.',
       });
     }
+    await this.requireVerified(actor);
     if (!this.testLimiter.allow(actor.id)) {
       throw new HttpException(
         { code: 'rate_limited', message: 'تعداد ایمیل آزمایشی در ساعت گذشته به سقف رسیده است.' },
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
-    this.transport ??= this.injected ?? createSmtpTransport(this.config);
     try {
-      await this.transport.sendMail({
-        from: this.config.EMAIL_FROM ?? '',
+      await this.mailer.send({
         to: actor.email,
         subject: 'ایمیل آزمایشی ایشان',
         text: 'اگر این پیام را می‌بینید، ارسال ایمیل اعلان‌ها درست کار می‌کند.',
@@ -95,5 +100,18 @@ export class NotificationPreferencesService {
       });
     }
     return { sent: true };
+  }
+
+  private async requireVerified(actor: AuthUser): Promise<void> {
+    const u = await this.prisma.user.findUniqueOrThrow({
+      where: { id: actor.id },
+      select: { emailVerifiedAt: true },
+    });
+    if (!u.emailVerifiedAt) {
+      throw new UnprocessableEntityException({
+        code: 'email_not_verified',
+        message: 'ابتدا نشانی ایمیل خود را تأیید کنید.',
+      });
+    }
   }
 }

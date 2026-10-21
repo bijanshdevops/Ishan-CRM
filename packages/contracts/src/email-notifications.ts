@@ -11,6 +11,10 @@ export const EMAIL_HOURLY_CAP_PER_USER = 30;
 /** Test e-mails one user may request per hour. */
 export const EMAIL_TEST_PER_HOUR = 5;
 export const EMAIL_TIMEOUT_MS = 15_000;
+/** Address verification (ADR 0014). */
+export const EMAIL_VERIFICATION_TTL_HOURS = 24;
+export const EMAIL_VERIFY_REQUESTS_PER_HOUR = 3;
+export const EMAIL_VERIFICATION_PURGE_DAYS = 7;
 
 export const EMAIL_DELIVERY_STATUSES = ['PENDING', 'SENT', 'FAILED', 'SKIPPED'] as const;
 export type EmailDeliveryStatus = (typeof EMAIL_DELIVERY_STATUSES)[number];
@@ -28,6 +32,11 @@ export interface NotificationPreferencesDto {
   /** `false` when the server has no SMTP configured; the switch is then hidden and cannot be turned on. */
   emailAvailable: boolean;
   emailEnabled: boolean;
+  /** The address is proven to belong to the user; required to turn e-mail on. */
+  emailVerified: boolean;
   /** The user's own address, where e-mails would go (never editable here). */
   email: string;
 }
+
+export const VerifyEmailSchema = z.strictObject({ token: z.string().min(20).max(200) });
+export type VerifyEmail = z.infer<typeof VerifyEmailSchema>;

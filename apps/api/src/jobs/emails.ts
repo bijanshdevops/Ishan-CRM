@@ -4,6 +4,7 @@ import {
   EMAIL_HOURLY_CAP_PER_USER,
   EMAIL_MAX_ATTEMPTS,
   EMAIL_TIMEOUT_MS,
+  EMAIL_VERIFICATION_PURGE_DAYS,
   emailRetryDelayMinutes,
 } from '@ishan/contracts';
 import type { AppConfig } from '../config';
@@ -115,6 +116,7 @@ export async function sendEmailDelivery(deps: EmailDeps, id: string): Promise<Em
           email: true,
           status: true,
           deletedAt: true,
+          emailVerifiedAt: true,
           notificationPreference: { select: { emailEnabled: true } },
         },
       },
@@ -133,6 +135,7 @@ export async function sendEmailDelivery(deps: EmailDeps, id: string): Promise<Em
   if (
     row.user.status !== 'ACTIVE' ||
     row.user.deletedAt ||
+    !row.user.emailVerifiedAt ||
     !row.user.notificationPreference?.emailEnabled
   ) {
     return skip('recipient is not eligible');
@@ -213,6 +216,18 @@ export async function purgeEmailDeliveries(
       status: { in: ['SENT', 'FAILED', 'SKIPPED'] },
       createdAt: { lt: new Date(now.getTime() - retentionDays * DAY_MS) },
     },
+  });
+  return res.count;
+}
+
+/** Deletes tokens that expired or were used more than a week ago. Live tokens are never touched. */
+export async function purgeEmailVerificationTokens(
+  prisma: Pick<PrismaService, 'emailVerificationToken'>,
+  now: Date,
+): Promise<number> {
+  const cutoff = new Date(now.getTime() - EMAIL_VERIFICATION_PURGE_DAYS * DAY_MS);
+  const res = await prisma.emailVerificationToken.deleteMany({
+    where: { OR: [{ expiresAt: { lt: cutoff } }, { usedAt: { lt: cutoff } }] },
   });
   return res.count;
 }
