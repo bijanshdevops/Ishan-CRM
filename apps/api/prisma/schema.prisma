@@ -126,6 +126,7 @@ model Organization {
   campaigns   Campaign[]
   domainEvents DomainEvent[]
   workflows    Workflow[]
+  webhookEndpoints WebhookEndpoint[]
 
   @@map("organizations")
 }
@@ -184,6 +185,7 @@ model User {
   createdCampaigns   Campaign[] @relation("CampaignCreator")
   notifications      Notification[]
   createdWorkflows   Workflow[]
+  createdWebhookEndpoints WebhookEndpoint[]
 
   @@unique([organizationId, email])
   @@index([roleId])
@@ -771,4 +773,61 @@ model WorkflowRun {
   @@index([workflowId, id(sort: Desc)])
   @@index([createdAt])
   @@map("workflow_runs")
+}
+
+/// Outbound webhook target (ADR 0012). The secret is AES-256-GCM encrypted: it must be readable to sign.
+model WebhookEndpoint {
+  id                   String    @id @default(uuid(7)) @db.Uuid
+  organizationId       String    @map("organization_id") @db.Uuid
+  name                 String
+  url                  String
+  eventTypes           String[]  @map("event_types")
+  enabled              Boolean   @default(true)
+  /// MANUAL or AUTO_FAILURES while disabled.
+  disabledReason       String?   @map("disabled_reason")
+  consecutiveFailures  Int       @default(0) @map("consecutive_failures")
+  secretCiphertext     String    @map("secret_ciphertext")
+  secretHint           String    @map("secret_hint")
+  /// Old secret that still signs during the grace window after a rotation.
+  previousSecretCiphertext String?   @map("previous_secret_ciphertext")
+  previousSecretExpiresAt  DateTime? @map("previous_secret_expires_at") @db.Timestamptz(6)
+  createdById          String    @map("created_by_id") @db.Uuid
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt            DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization      @relation(fields: [organizationId], references: [id])
+  createdBy    User              @relation(fields: [createdById], references: [id])
+  deliveries   WebhookDelivery[]
+
+  @@index([organizationId, id(sort: Desc)])
+  @@map("webhook_endpoints")
+}
+
+/// One event to one endpoint. UNIQUE (endpoint_id, event_id) makes re-dispatch harmless; test pings have no event.
+model WebhookDelivery {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  endpointId     String    @map("endpoint_id") @db.Uuid
+  /// No foreign key: events are purged on their own schedule.
+  eventId        String?   @map("event_id") @db.Uuid
+  eventType      String    @map("event_type")
+  /// The exact envelope that is signed and sent (snapshot, so retries and redelivery survive event purging).
+  payload        Json
+  status         String    @default("PENDING")
+  attempt        Int       @default(0)
+  nextAttemptAt  DateTime? @map("next_attempt_at") @db.Timestamptz(6)
+  lastStatusCode Int?      @map("last_status_code")
+  lastError      String?   @map("last_error")
+  responseSnippet String?  @map("response_snippet")
+  durationMs     Int?      @map("duration_ms")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  deliveredAt    DateTime? @map("delivered_at") @db.Timestamptz(6)
+
+  endpoint WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@unique([endpointId, eventId])
+  @@index([status, nextAttemptAt])
+  @@index([endpointId, id(sort: Desc)])
+  @@index([createdAt])
+  @@map("webhook_deliveries")
 }

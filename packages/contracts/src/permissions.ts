@@ -41,6 +41,10 @@ export const PERMISSIONS = {
   WORKFLOWS_READ: 'workflows.read',
   WORKFLOWS_WRITE: 'workflows.write',
   WORKFLOWS_DELETE: 'workflows.delete',
+  /** Outbound webhooks send organization data to third parties: admin only (ADR 0012). */
+  WEBHOOKS_READ: 'webhooks.read',
+  WEBHOOKS_WRITE: 'webhooks.write',
+  WEBHOOKS_DELETE: 'webhooks.delete',
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
