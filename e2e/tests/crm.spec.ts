@@ -57,6 +57,22 @@ test.describe.serial('Ishan CRM end-to-end', () => {
     await expect(page.getByText(fa.account.emailTitle)).toHaveCount(0);
   });
 
+  test('verify-email page: no token, and a bad token is refused without spending anything', async ({
+    page,
+  }) => {
+    await page.goto('/verify-email');
+    await expect(page.getByText(fa.verifyEmail.missing)).toBeVisible();
+    await a11y(page, '/verify-email (no token)');
+
+    await page.goto(`/verify-email?token=${'x'.repeat(43)}`);
+    await expect(page.getByText(fa.verifyEmail.intro)).toBeVisible();
+    // the token is removed from the address bar as soon as the page has read it
+    await expect(page).toHaveURL(/\/verify-email$/);
+    await a11y(page, '/verify-email');
+    await page.getByRole('button', { name: fa.verifyEmail.confirm }).click();
+    await expect(page.getByText(fa.verifyEmail.invalid)).toBeVisible();
+  });
+
   test('customer lifecycle: create, contact, tag, search', async ({ page }) => {
     await loginAdmin(page);
     await page.goto('/customers');
