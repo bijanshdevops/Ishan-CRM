@@ -22,6 +22,25 @@ const EnvSchema = z.object({
     .enum(['true', 'false'])
     .optional()
     .transform((v) => v === 'true'),
+  /** E-mail channel (ADR 0013). Without SMTP_HOST the channel is off and nothing is queued. */
+  SMTP_HOST: z.string().min(1).optional(),
+  SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(587),
+  /** true = implicit TLS (port 465); false = STARTTLS is required. */
+  SMTP_SECURE: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => v === 'true'),
+  SMTP_USER: z.string().min(1).optional(),
+  SMTP_PASSWORD: z.string().min(1).optional(),
+  /** Dev/test only: allow a plain-text SMTP session. Ignored in production. */
+  SMTP_ALLOW_INSECURE: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => v === 'true'),
+  EMAIL_FROM: z.string().min(3).optional(),
+  /** Public base URL of the web app; used for the link in e-mails. */
+  APP_BASE_URL: z.string().url().optional(),
+  EMAIL_DELIVERY_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(30),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   CORS_ORIGINS: z
     .string()
@@ -56,10 +75,26 @@ const EnvSchema = z.object({
   BOOTSTRAP_ADMIN_PASSWORD: z.string().min(12).optional(),
 });
 
-export type AppConfig = z.infer<typeof EnvSchema>;
+const checked = EnvSchema.superRefine((c, ctx) => {
+  if (!c.SMTP_HOST) return;
+  for (const key of ['EMAIL_FROM', 'APP_BASE_URL'] as const) {
+    if (!c[key]) {
+      ctx.addIssue({ code: 'custom', path: [key], message: `is required when SMTP_HOST is set` });
+    }
+  }
+  if (Boolean(c.SMTP_USER) !== Boolean(c.SMTP_PASSWORD)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['SMTP_PASSWORD'],
+      message: 'SMTP_USER and SMTP_PASSWORD must be set together',
+    });
+  }
+});
+
+export type AppConfig = z.infer<typeof checked>;
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
-  const parsed = EnvSchema.safeParse(env);
+  const parsed = checked.safeParse(env);
   if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
     throw new Error(`Invalid environment configuration: ${issues}`);

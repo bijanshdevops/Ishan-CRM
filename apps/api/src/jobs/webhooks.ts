@@ -14,6 +14,7 @@ import type { PrismaService } from '../infra/prisma.service';
 import type { QueueService } from '../infra/queue/queue.service';
 import { QUEUES, WEBHOOK_JOBS } from '../infra/queue/queues';
 import type { CryptoService } from '../modules/auth/crypto.service';
+import { queueNotificationEmail } from '../modules/notifications/email-outbox';
 import { signatureHeader } from '../modules/webhooks/signing';
 import {
   resolveSafeTarget,
@@ -170,7 +171,18 @@ export function createWebhookHandler(deps: EnqueueDeps): EventHandler {
 }
 
 export interface DeliverDeps {
-  prisma: Pick<PrismaService, 'webhookDelivery' | 'webhookEndpoint' | 'auditLog' | 'notification'>;
+  prisma: Pick<
+    PrismaService,
+    | 'webhookDelivery'
+    | 'webhookEndpoint'
+    | 'auditLog'
+    | 'notification'
+    | 'user'
+    | 'notificationPreference'
+    | 'emailDelivery'
+  >;
+  /** SMTP is configured: an opted-in creator also gets an e-mail about the auto-disable. */
+  emailChannel?: boolean;
   crypto: Pick<CryptoService, 'decrypt'>;
   guard: GuardOptions;
   send?: WebhookSender;
@@ -320,8 +332,8 @@ async function countFinalFailure(
       metadata: { name: ep.name, failures: updated.consecutiveFailures } as never,
     },
   });
-  await deps.prisma.notification
-    .create({
+  try {
+    const created = await deps.prisma.notification.create({
       data: {
         userId: ep.createdById,
         type: 'system',
@@ -330,10 +342,14 @@ async function countFinalFailure(
         entityType: 'webhook',
         entityId: ep.id,
       },
-    })
-    .catch((err) =>
-      deps.log?.error({ err: String(err) }, 'could not notify about auto-disabled webhook'),
-    );
+      select: { id: true },
+    });
+    if (deps.emailChannel) {
+      await queueNotificationEmail(deps.prisma, { id: created.id, userId: ep.createdById }, now);
+    }
+  } catch (err) {
+    deps.log?.error({ err: String(err) }, 'could not notify about auto-disabled webhook');
+  }
   deps.log?.info({ endpointId: ep.id, at: now.toISOString() }, 'webhook endpoint auto-disabled');
 }
 

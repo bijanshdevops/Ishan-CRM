@@ -12,6 +12,7 @@ import {
 } from '@ishan/contracts';
 import type { PrismaService } from '../infra/prisma.service';
 import { activitySearchText } from '../modules/activities/mappers';
+import { queueNotificationEmail } from '../modules/notifications/email-outbox';
 import type { DispatchedEvent, EventHandler } from './events';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -33,10 +34,15 @@ class ActionFailure extends Error {
   }
 }
 
-type Db = Pick<PrismaService, 'user' | 'notification' | 'activity' | 'workflowRun'>;
+type Db = Pick<
+  PrismaService,
+  'user' | 'notification' | 'activity' | 'workflowRun' | 'notificationPreference' | 'emailDelivery'
+>;
 export interface WorkflowEngineDeps {
   prisma: Pick<PrismaService, '$transaction' | 'workflow' | 'workflowRun'>;
   now?: () => Date;
+  /** SMTP is configured: opted-in recipients also get an e-mail copy (ADR 0013). */
+  emailChannel?: boolean;
   log?: { info: (o: object, m: string) => void; error: (o: object, m: string) => void };
 }
 
@@ -65,6 +71,7 @@ async function executeActions(
   payload: Record<string, unknown>,
   runId: string,
   now: Date,
+  emailChannel: boolean,
 ): Promise<WorkflowRunStep[]> {
   const type = event.type as DomainEventType;
   const steps: WorkflowRunStep[] = [];
@@ -115,6 +122,9 @@ async function executeActions(
           },
           select: { id: true },
         });
+        if (emailChannel) {
+          await queueNotificationEmail(db, { id: created.id, userId: target.userId }, now);
+        }
         steps.push({ action: 'notify', status: 'done', createdId: created.id });
       } else {
         if (!(await activeUser(wf.createdById))) {
@@ -193,6 +203,7 @@ export async function runWorkflow(
         payload,
         run.id,
         startedAt,
+        deps.emailChannel ?? false,
       );
       await tx.workflowRun.update({
         where: { id: run.id },

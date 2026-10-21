@@ -14,3 +14,4 @@ export * from './events';
 export * from './notifications';
 export * from './workflows';
 export * from './webhooks';
+export * from './email-notifications';

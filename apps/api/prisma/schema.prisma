@@ -173,6 +173,8 @@ model User {
   role         Role         @relation(fields: [roleId], references: [id])
   sessions     Session[]
   memberships  TeamMember[]
+  notificationPreference NotificationPreference?
+  emailDeliveries        EmailDelivery[]
   ownedCustomers Customer[]
   ownedLeads     Lead[]
   ownedDeals     Deal[]
@@ -722,7 +724,8 @@ model Notification {
   readAt        DateTime? @map("read_at") @db.Timestamptz(6)
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailDelivery EmailDelivery?
 
   @@index([userId, id(sort: Desc)])
   @@index([userId, readAt])
@@ -830,4 +833,38 @@ model WebhookDelivery {
   @@index([endpointId, id(sort: Desc)])
   @@index([createdAt])
   @@map("webhook_deliveries")
+}
+
+/// Per-user channel choices (ADR 0013). A missing row means every optional channel is off.
+model NotificationPreference {
+  userId       String   @id @map("user_id") @db.Uuid
+  emailEnabled Boolean  @default(false) @map("email_enabled")
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
+}
+
+/// Outbox of notification e-mails, written in the same transaction as the notification (UNIQUE notification_id).
+/// The address is read from users.email at send time and never copied here.
+model EmailDelivery {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  notificationId String    @unique @map("notification_id") @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  /// PENDING, SENT, FAILED or SKIPPED (hourly cap or recipient no longer eligible).
+  status         String    @default("PENDING")
+  attempt        Int       @default(0)
+  nextAttemptAt  DateTime? @map("next_attempt_at") @db.Timestamptz(6)
+  lastError      String?   @map("last_error")
+  sentAt         DateTime? @map("sent_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextAttemptAt])
+  @@index([userId, createdAt])
+  @@index([createdAt])
+  @@map("email_deliveries")
 }
