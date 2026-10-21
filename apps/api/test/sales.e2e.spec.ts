@@ -11,6 +11,7 @@ const PASSWORD = 'Sales-Spec-Passw0rd';
 interface Res {
   status: number;
   body: any;
+  headers: Record<string, any>;
 }
 
 describe.skipIf(!run)('sales (database)', () => {
@@ -30,8 +31,9 @@ describe.skipIf(!run)('sales (database)', () => {
     url: string,
     who: string | null,
     body?: unknown,
+    extra: Record<string, string> = {},
   ): Promise<Res> {
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = { ...extra };
     if (who) headers.cookie = cookies[who]!;
     if (method !== 'GET') headers.origin = ORIGIN;
     const res = await app.inject({
@@ -46,7 +48,7 @@ describe.skipIf(!run)('sales (database)', () => {
     } catch {
       parsed = undefined;
     }
-    return { status: res.statusCode, body: parsed };
+    return { status: res.statusCode, body: parsed, headers: res.headers };
   }
 
   beforeAll(async () => {
@@ -295,5 +297,50 @@ describe.skipIf(!run)('sales (database)', () => {
     expect((await call('DELETE', `/pipeline/stages/${stages[3].id}`, 'sales-manager')).status).toBe(
       409,
     );
+  });
+
+  it('guards concurrent edits of leads and deals with If-Match, atomically', async () => {
+    const lead = await call('POST', '/leads', 'sales-rep', { name: 'سرنخ همزمانی' });
+    expect(lead.status).toBe(201);
+    expect(lead.body.updatedAt).toBeTruthy();
+    const leadTag = (await call('GET', `/leads/${lead.body.id}`, 'sales-rep')).headers.etag;
+    expect(leadTag).toMatch(/^"\d+"$/);
+    await new Promise((r) => setTimeout(r, 5));
+    const bump = await call('PATCH', `/leads/${lead.body.id}`, 'sales-manager', { company: 'الف' });
+    expect(bump.status).toBe(200);
+    const staleLead = await call(
+      'PATCH',
+      `/leads/${lead.body.id}`,
+      'sales-rep',
+      { company: 'ب' },
+      { 'if-match': leadTag },
+    );
+    expect(staleLead.status).toBe(412);
+    expect(staleLead.body.error.code).toBe('STALE_ENTITY');
+
+    const deal = await call('POST', '/deals', 'sales-rep', { title: 'فرصت همزمانی', customerId });
+    expect(deal.status).toBe(201);
+    const dealTag = (await call('GET', `/deals/${deal.body.id}`, 'sales-rep')).headers.etag;
+    await new Promise((r) => setTimeout(r, 5));
+    expect(
+      (await call('PATCH', `/deals/${deal.body.id}`, 'sales-manager', { notes: 'x' })).status,
+    ).toBe(200);
+    const staleDeal = await call(
+      'PATCH',
+      `/deals/${deal.body.id}`,
+      'sales-rep',
+      { notes: 'y' },
+      { 'if-match': dealTag },
+    );
+    expect(staleDeal.status).toBe(412);
+
+    // two writers racing on the SAME tag: exactly one wins, whatever the interleaving
+    const fresh = (await call('GET', `/deals/${deal.body.id}`, 'sales-rep')).headers.etag;
+    const race = await Promise.all(
+      ['a', 'b'].map((n) =>
+        call('PATCH', `/deals/${deal.body.id}`, 'sales-rep', { notes: n }, { 'if-match': fresh }),
+      ),
+    );
+    expect(race.map((r) => r.status).sort()).toEqual([200, 412]);
   });
 });

@@ -1,3 +1,4 @@
+import { assertIfMatch, hasPrecondition, staleEntity, unchangedSince } from '../../common/etag';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type {
   ConvertLeadRequest,
@@ -116,11 +117,12 @@ export class LeadsService {
     return this.get(actor, lead.id);
   }
 
-  async update(actor: AuthUser, id: string, dto: UpdateLeadRequest, ip?: string) {
+  async update(actor: AuthUser, id: string, dto: UpdateLeadRequest, ip?: string, ifMatch?: string) {
     const existing = await this.prisma.lead.findFirst({
       where: { id, organizationId: actor.organizationId, deletedAt: null },
     });
     if (!existing) throw new NotFoundException('سرنخ یافت نشد');
+    assertIfMatch(ifMatch, existing.updatedAt);
     if (existing.status === 'CONVERTED') {
       throw new BadRequestException({
         code: 'LEAD_CONVERTED',
@@ -155,8 +157,8 @@ export class LeadsService {
         dto.status && dto.status !== 'DISQUALIFIED' ? null : blank(dto.disqualifyReason),
     };
     const data = Object.fromEntries(Object.entries(next).filter(([, v]) => v !== undefined));
-    await this.prisma.lead.update({
-      where: { id },
+    const written = await this.prisma.lead.updateMany({
+      where: { id, ...(hasPrecondition(ifMatch) ? unchangedSince(existing.updatedAt) : {}) },
       data: {
         ...data,
         searchText: leadSearchText({ ...existing, ...data, sourceName } as typeof existing & {
@@ -164,6 +166,8 @@ export class LeadsService {
         }),
       },
     });
+    if (written.count === 0)
+      throw hasPrecondition(ifMatch) ? staleEntity() : new NotFoundException('سرنخ یافت نشد');
     await this.audit.record({
       organizationId: actor.organizationId,
       actorId: actor.id,

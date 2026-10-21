@@ -1,3 +1,4 @@
+import { assertIfMatch, hasPrecondition, staleEntity, unchangedSince } from '../../common/etag';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type {
   CreateCustomerRequest,
@@ -107,11 +108,18 @@ export class CustomersService {
     return this.get(actor, created.id);
   }
 
-  async update(actor: AuthUser, id: string, dto: UpdateCustomerRequest, ip?: string) {
+  async update(
+    actor: AuthUser,
+    id: string,
+    dto: UpdateCustomerRequest,
+    ip?: string,
+    ifMatch?: string,
+  ) {
     const existing = await this.prisma.customer.findFirst({
       where: { id, organizationId: actor.organizationId, deletedAt: null },
     });
     if (!existing) throw new NotFoundException('مشتری یافت نشد');
+    assertIfMatch(ifMatch, existing.updatedAt);
     if (dto.ownerId !== undefined) await this.assertOwner(actor.organizationId, dto.ownerId);
 
     const next = {
@@ -130,10 +138,13 @@ export class CustomersService {
     };
     const data = Object.fromEntries(Object.entries(next).filter(([, v]) => v !== undefined));
     const merged = { ...existing, ...data } as typeof existing;
-    await this.prisma.customer.update({
-      where: { id },
+    // Compare-and-set: with If-Match the row must still be the one the client saw.
+    const written = await this.prisma.customer.updateMany({
+      where: { id, ...(hasPrecondition(ifMatch) ? unchangedSince(existing.updatedAt) : {}) },
       data: { ...data, searchText: customerSearchText(merged) },
     });
+    if (written.count === 0)
+      throw hasPrecondition(ifMatch) ? staleEntity() : new NotFoundException('مشتری یافت نشد');
     await this.audit.record({
       organizationId: actor.organizationId,
       actorId: actor.id,

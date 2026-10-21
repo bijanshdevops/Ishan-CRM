@@ -110,6 +110,7 @@ export interface LeadDto {
   convertedCustomerId: string | null;
   convertedDealId: string | null;
   createdAt: string;
+  updatedAt: string;
 }
 
 // ---- Pipeline ----------------------------------------------------------

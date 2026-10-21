@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   Param,
   ParseUUIDPipe,
@@ -76,9 +77,10 @@ export class LeadsController {
     @Param('id', uuid()) id: string,
     @Body(new ZodValidationPipe(UpdateLeadRequestSchema))
     body: Infer<typeof UpdateLeadRequestSchema>,
+    @Headers('if-match') ifMatch: string | undefined,
     @Req() req: FastifyRequest,
   ) {
-    return this.leads.update(actor, id, body, req.ip);
+    return this.leads.update(actor, id, body, req.ip, ifMatch);
   }
 
   @Post(':id/convert')
@@ -150,9 +152,10 @@ export class DealsController {
     @Param('id', uuid()) id: string,
     @Body(new ZodValidationPipe(UpdateDealRequestSchema))
     body: Infer<typeof UpdateDealRequestSchema>,
+    @Headers('if-match') ifMatch: string | undefined,
     @Req() req: FastifyRequest,
   ) {
-    return this.deals.update(actor, id, body, req.ip);
+    return this.deals.update(actor, id, body, req.ip, ifMatch);
   }
 
   @Post(':id/move')

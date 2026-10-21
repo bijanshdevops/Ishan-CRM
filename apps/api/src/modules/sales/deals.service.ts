@@ -1,3 +1,4 @@
+import { assertIfMatch, hasPrecondition, staleEntity, unchangedSince } from '../../common/etag';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type {
   CreateDealRequest,
@@ -146,11 +147,12 @@ export class DealsService {
     return this.get(actor, deal.id);
   }
 
-  async update(actor: AuthUser, id: string, dto: UpdateDealRequest, ip?: string) {
+  async update(actor: AuthUser, id: string, dto: UpdateDealRequest, ip?: string, ifMatch?: string) {
     const existing = await this.prisma.deal.findFirst({
       where: { id, organizationId: actor.organizationId, deletedAt: null },
     });
     if (!existing) throw new NotFoundException('فرصت یافت نشد');
+    assertIfMatch(ifMatch, existing.updatedAt);
     await this.assertRefs(actor, {
       customerId: existing.customerId,
       contactId: dto.contactId,
@@ -170,7 +172,12 @@ export class DealsService {
       notes: dto.notes === '' ? null : dto.notes,
     };
     const clean = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined));
-    await this.prisma.deal.update({ where: { id }, data: clean });
+    const written = await this.prisma.deal.updateMany({
+      where: { id, ...(hasPrecondition(ifMatch) ? unchangedSince(existing.updatedAt) : {}) },
+      data: clean,
+    });
+    if (written.count === 0)
+      throw hasPrecondition(ifMatch) ? staleEntity() : new NotFoundException('فرصت یافت نشد');
     await this.audit.record({
       organizationId: actor.organizationId,
       actorId: actor.id,

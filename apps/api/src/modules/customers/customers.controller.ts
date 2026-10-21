@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Header,
+  Headers,
   HttpCode,
   Param,
   ParseUUIDPipe,
@@ -105,9 +106,10 @@ export class CustomersController {
     @Param('id', uuid()) id: string,
     @Body(new ZodValidationPipe(UpdateCustomerRequestSchema))
     body: Infer<typeof UpdateCustomerRequestSchema>,
+    @Headers('if-match') ifMatch: string | undefined,
     @Req() req: FastifyRequest,
   ) {
-    return this.customers.update(actor, id, body, req.ip);
+    return this.customers.update(actor, id, body, req.ip, ifMatch);
   }
 
   @Delete(':id')

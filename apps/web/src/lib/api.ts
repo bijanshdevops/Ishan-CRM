@@ -16,14 +16,23 @@ export class ApiClientError extends Error {
   }
 }
 
+/**
+ * `version` is the `updatedAt` of the entity the user was looking at. It is sent as `If-Match`,
+ * so saving a stale form fails with 412 instead of overwriting a colleague's edit.
+ */
+export const etagFor = (updatedAt: string) => `"${new Date(updatedAt).getTime()}"`;
+
 export async function api<T = unknown>(
   path: string,
-  init: { method?: string; body?: unknown } = {},
+  init: { method?: string; body?: unknown; version?: string } = {},
 ): Promise<T> {
+  const headers: Record<string, string> = {};
+  if (init.body !== undefined) headers['Content-Type'] = 'application/json';
+  if (init.version) headers['If-Match'] = etagFor(init.version);
   const res = await fetch(`${apiBaseUrl()}${path}`, {
     method: init.method ?? 'GET',
     credentials: 'include',
-    headers: init.body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
+    headers: Object.keys(headers).length > 0 ? headers : undefined,
     body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
   });
   if (res.status === 204) return undefined as T;
