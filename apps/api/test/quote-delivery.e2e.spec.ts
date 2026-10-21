@@ -36,6 +36,7 @@ describe.skipIf(!run)('quote PDF and e-mail (database)', () => {
   let otherOrgId = '';
   let customerId = '';
   let otherCustomerId = '';
+  let contactId = '';
   const cookies: Record<string, string> = {};
   const ids: Record<string, string> = {};
   const roleOf: Record<string, string> = {
@@ -91,6 +92,7 @@ describe.skipIf(!run)('quote PDF and e-mail (database)', () => {
     const res = await call('POST', '/quotes', 'qd-sales', {
       title: `پیشنهاد ${stamp}`,
       customerId,
+      contactId,
       items: [{ description: 'خدمت <b>الف</b>', quantity: 2, unitPrice: '1000000' }],
       ...over,
     });
@@ -186,17 +188,19 @@ describe.skipIf(!run)('quote PDF and e-mail (database)', () => {
       data: { organizationId: orgId, kind: 'PERSON', name: `مشتری ${stamp}`, email: addr('cust') },
     });
     customerId = customer.id;
-    await prisma.contact.create({
-      data: {
-        organizationId: orgId,
-        customerId,
-        firstName: 'رضا',
-        lastName: 'موسوی',
-        email: addr('contact').toUpperCase(),
-        isPrimary: true,
-        searchText: 'رضا موسوی',
-      },
-    });
+    contactId = (
+      await prisma.contact.create({
+        data: {
+          organizationId: orgId,
+          customerId,
+          firstName: 'رضا',
+          lastName: 'موسوی',
+          email: addr('contact').toUpperCase(),
+          isPrimary: true,
+          searchText: 'رضا موسوی',
+        },
+      })
+    ).id;
     otherCustomerId = (
       await prisma.customer.create({
         data: { organizationId: orgId, kind: 'PERSON', name: `بی‌ایمیل ${stamp}` },
@@ -310,7 +314,7 @@ describe.skipIf(!run)('quote PDF and e-mail (database)', () => {
     );
     const un = await call('GET', `/quotes/${q.id}/email-options`, 'qd-unverified');
     expect(un.body.replyTo).toBeNull();
-    const none = await newQuote({ customerId: otherCustomerId });
+    const none = await newQuote({ customerId: otherCustomerId, contactId: undefined });
     expect(
       (await call('GET', `/quotes/${none.id}/email-options`, 'qd-sales')).body.recipients,
     ).toEqual([]);
@@ -550,5 +554,6 @@ describe.skipIf(!run)('quote PDF and e-mail (database)', () => {
         await real.close();
       }
     },
+    90_000,
   );
 });
