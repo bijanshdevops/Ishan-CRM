@@ -2,7 +2,7 @@ import { Worker } from 'bullmq';
 import type { AppConfig } from '../config';
 import type { PrismaService } from '../infra/prisma.service';
 import type { QueueService } from '../infra/queue/queue.service';
-import { QUEUES } from '../infra/queue/queues';
+import { EMAIL_JOBS, QUEUES } from '../infra/queue/queues';
 import { publishEventIds } from '../modules/events/domain-events.service';
 import { createEventsProcessor, type EventHandler } from './events';
 import { createEventHandlers } from './handlers';
@@ -13,6 +13,8 @@ import {
   emailChannelEnabled,
   publishEmails,
 } from './emails';
+import { createQuoteEmailProcessor, publishQuoteEmails } from './quote-emails';
+import { PdfRenderer } from '../modules/quotes/pdf-renderer';
 import { createCampaignEmailProcessor, publishCampaignEmails } from './campaign-emails';
 import { createWebhookProcessor, publishDeliveries } from './webhooks';
 import { CryptoService } from '../modules/auth/crypto.service';
@@ -44,6 +46,7 @@ export async function startWorker(
       campaignRecipientRetentionDays: config.CAMPAIGN_RECIPIENT_RETENTION_DAYS,
       publishDeliveries: (items) => publishDeliveries(queues, items),
       publishEmails: (items) => publishEmails(queues, items),
+      publishQuoteEmails: (items) => publishQuoteEmails(queues, items),
       publishCampaignEmails: (items) => publishCampaignEmails(queues, items),
       log,
     }),
@@ -64,12 +67,18 @@ export async function startWorker(
     }),
     { connection: queues.newConnection(), concurrency: 10 },
   );
+  const renderer = new PdfRenderer(config.PDF_CHROMIUM_PATH);
   const emails = emailChannelEnabled(config)
-    ? new Worker(
-        QUEUES.emails,
-        createEmailProcessor({ prisma, transport: createSmtpTransport(config), config, log }),
-        { connection: queues.newConnection(), concurrency: 3 },
-      )
+    ? (() => {
+        const transport = createSmtpTransport(config);
+        const notifications = createEmailProcessor({ prisma, transport, config, log });
+        const quotes = createQuoteEmailProcessor({ prisma, transport, renderer, config, log });
+        return new Worker(
+          QUEUES.emails,
+          (job) => (job.name === EMAIL_JOBS.sendQuote ? quotes(job) : notifications(job)),
+          { connection: queues.newConnection(), concurrency: 3 },
+        );
+      })()
     : null;
   const workers = emails
     ? [maintenance, events, webhooks, emails]
@@ -87,6 +96,7 @@ export async function startWorker(
     isRunning: () => workers.every((w) => w.isRunning()),
     stop: async () => {
       await Promise.all(workers.map((w) => w.close()));
+      await renderer.close();
     },
   };
 }

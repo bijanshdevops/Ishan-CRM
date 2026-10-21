@@ -177,6 +177,7 @@ model User {
   memberships  TeamMember[]
   notificationPreference NotificationPreference?
   emailDeliveries        EmailDelivery[]
+  quoteEmails            QuoteEmail[]
   emailVerificationTokens EmailVerificationToken[]
   ownedCustomers Customer[]
   ownedLeads     Lead[]
@@ -628,6 +629,7 @@ model Quote {
   createdBy    User?        @relation("QuoteCreator", fields: [createdById], references: [id], onDelete: SetNull)
   items        QuoteItem[]
   contract     Contract?
+  emails       QuoteEmail[]
 
   @@unique([organizationId, seq, version], map: "quotes_org_seq_version_key")
   @@index([organizationId, id(sort: Desc)])
@@ -955,4 +957,32 @@ model MarketingSuppression {
 
   @@unique([organizationId, email])
   @@map("marketing_suppressions")
+}
+
+/// A quote e-mailed to the customer, with the PDF attached at send time (ADR 0016).
+model QuoteEmail {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  /// A quote row is one version, so this also fixes which version was sent.
+  quoteId        String    @map("quote_id") @db.Uuid
+  senderId       String?   @map("sender_id") @db.Uuid
+  toEmail        String    @map("to_email")
+  /// Reply-To: the sender's verified address when the mail was requested.
+  replyTo        String    @map("reply_to")
+  message        String?
+  /// PENDING, SENT or FAILED.
+  status         String    @default("PENDING")
+  attempt        Int       @default(0)
+  nextAttemptAt  DateTime? @map("next_attempt_at") @db.Timestamptz(6)
+  lastError      String?   @map("last_error")
+  sentAt         DateTime? @map("sent_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  quote  Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  sender User? @relation(fields: [senderId], references: [id], onDelete: SetNull)
+
+  @@index([quoteId, createdAt])
+  @@index([status, nextAttemptAt])
+  @@index([senderId, createdAt])
+  @@map("quote_emails")
 }
