@@ -42,12 +42,33 @@ services:
       PORT: '4000'
       DATABASE_URL: postgresql://ishan:ishan@postgres:5432/ishan?schema=public
       CORS_ORIGINS: http://localhost:${WEB_PORT:-3000}
+      REDIS_URL: redis://redis:6379
       COOKIE_SECURE: 'false' # dev over http only; keep true behind TLS
       # DEV-ONLY secrets. Generate real ones: openssl rand -base64 32
       ENCRYPTION_KEY: 'ZGV2LW9ubHktZW5jcnlwdGlvbi1rZXktMzItYnl0ZXM='
       BOOTSTRAP_ADMIN_EMAIL: admin@ishan.local
       BOOTSTRAP_ADMIN_PASSWORD: 'ChangeMe-Dev-2026!'
     ports: ['${API_PORT:-4000}:4000']
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+
+  # Background jobs (ADR 0010): same image as the API, different entrypoint. No published port.
+  worker:
+    build: { context: .., dockerfile: apps/api/Dockerfile, target: runner }
+    command: ['node', 'dist/worker.js']
+    environment:
+      NODE_ENV: production
+      WORKER_PORT: '4001'
+      DATABASE_URL: postgresql://ishan:ishan@postgres:5432/ishan?schema=public
+      REDIS_URL: redis://redis:6379
+      # DEV-ONLY secrets, same as the API (the shared config requires the key).
+      ENCRYPTION_KEY: 'ZGV2LW9ubHktZW5jcnlwdGlvbi1rZXktMzItYnl0ZXM='
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:4001/health/live >/dev/null || exit 1']
+      interval: 10s
+      timeout: 3s
+      retries: 10
     depends_on:
       migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }

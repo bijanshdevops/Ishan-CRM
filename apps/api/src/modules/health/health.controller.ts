@@ -5,6 +5,7 @@ import type { HealthStatus } from '@ishan/contracts';
 import type { FastifyReply } from 'fastify';
 import { APP_CONFIG, type AppConfig } from '../../config';
 import { PrismaService } from '../../infra/prisma.service';
+import { QueueService } from '../../infra/queue/queue.service';
 
 @ApiTags('health')
 @Public()
@@ -12,6 +13,7 @@ import { PrismaService } from '../../infra/prisma.service';
 export class HealthController {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly queues: QueueService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
@@ -25,7 +27,10 @@ export class HealthController {
   @Get('ready')
   async ready(@Res({ passthrough: true }) reply: FastifyReply): Promise<HealthStatus> {
     const database = (await this.prisma.ping()) ? 'up' : 'down';
-    const body = this.snapshot({ database });
+    const checks: Record<string, 'up' | 'down'> = { database };
+    // Redis is only a readiness dependency when it is configured (queues are optional for the API).
+    if (this.queues.enabled) checks.redis = (await this.queues.ping()) ? 'up' : 'down';
+    const body = this.snapshot(checks);
     if (body.status === 'error') void reply.status(HttpStatus.SERVICE_UNAVAILABLE);
     return body;
   }
