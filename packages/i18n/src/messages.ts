@@ -568,6 +568,9 @@ export const PERMISSION_LABELS: Record<string, string> = {
   'campaigns.read': 'مشاهده کمپین‌ها',
   'campaigns.write': 'مدیریت کمپین‌ها و منابع سرنخ',
   'campaigns.delete': 'حذف کمپین',
+  'workflows.read': 'مشاهده گردش‌کارها',
+  'workflows.write': 'مدیریت گردش‌کارها',
+  'workflows.delete': 'حذف گردش‌کار',
 };
 
 export type Messages = typeof fa;

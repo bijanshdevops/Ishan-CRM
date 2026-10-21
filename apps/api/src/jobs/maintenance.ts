@@ -40,11 +40,27 @@ export async function purgeReadNotifications(
   return res.count;
 }
 
+/** Deletes workflow run history older than `retentionDays`. */
+export async function purgeWorkflowRuns(
+  prisma: Pick<PrismaService, 'workflowRun'>,
+  now: Date,
+  retentionDays: number,
+): Promise<number> {
+  const res = await prisma.workflowRun.deleteMany({
+    where: { createdAt: { lt: new Date(now.getTime() - retentionDays * DAY_MS) } },
+  });
+  return res.count;
+}
+
 export interface MaintenanceDeps {
-  prisma: Pick<PrismaService, 'session' | 'activity' | 'contract' | 'domainEvent' | 'notification'>;
+  prisma: Pick<
+    PrismaService,
+    'session' | 'activity' | 'contract' | 'domainEvent' | 'notification' | 'workflowRun'
+  >;
   retentionDays: number;
   eventRetentionDays: number;
   notificationRetentionDays: number;
+  workflowRunRetentionDays: number;
   /** Hands event ids to the `events` queue (see DomainEventsService.publish). */
   publishEvents: (ids: string[]) => Promise<void>;
   now?: () => Date;
@@ -83,6 +99,11 @@ export function createMaintenanceProcessor(deps: MaintenanceDeps) {
           now(),
           deps.notificationRetentionDays,
         );
+        deps.log?.info({ job: job.name, deleted }, 'maintenance job finished');
+        return { deleted };
+      }
+      case MAINTENANCE_JOBS.purgeWorkflowRuns: {
+        const deleted = await purgeWorkflowRuns(deps.prisma, now(), deps.workflowRunRetentionDays);
         deps.log?.info({ job: job.name, deleted }, 'maintenance job finished');
         return { deleted };
       }

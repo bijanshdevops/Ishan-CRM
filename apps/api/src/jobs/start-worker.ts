@@ -5,7 +5,7 @@ import type { QueueService } from '../infra/queue/queue.service';
 import { QUEUES } from '../infra/queue/queues';
 import { publishEventIds } from '../modules/events/domain-events.service';
 import { createEventsProcessor, type EventHandler } from './events';
-import { EVENT_HANDLERS } from './handlers';
+import { createEventHandlers } from './handlers';
 import { createMaintenanceProcessor } from './maintenance';
 
 /** Starts the maintenance and events workers; `stop()` drains in-flight jobs. */
@@ -14,7 +14,7 @@ export async function startWorker(
   prisma: PrismaService,
   config: AppConfig,
   log: { info: (o: object, m: string) => void; error: (o: object, m: string) => void },
-  handlers: EventHandler[] = EVENT_HANDLERS,
+  handlers: EventHandler[] = createEventHandlers(prisma, log),
 ) {
   const maintenance = new Worker(
     QUEUES.maintenance,
@@ -23,6 +23,7 @@ export async function startWorker(
       retentionDays: config.SESSION_RETENTION_DAYS,
       eventRetentionDays: config.EVENT_RETENTION_DAYS,
       notificationRetentionDays: config.NOTIFICATION_RETENTION_DAYS,
+      workflowRunRetentionDays: config.WORKFLOW_RUN_RETENTION_DAYS,
       publishEvents: (ids) => publishEventIds(queues, ids),
       log,
     }),
