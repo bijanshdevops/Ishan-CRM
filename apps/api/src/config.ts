@@ -5,6 +5,12 @@ const EnvSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(4000),
   HOST: z.string().default('0.0.0.0'),
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
+  /** Redis for queues. Optional: without it the API serves traffic and no jobs are scheduled. */
+  REDIS_URL: z.string().url().optional(),
+  /** Port of the worker's own health endpoint (the worker has no public HTTP surface). */
+  WORKER_PORT: z.coerce.number().int().min(1).max(65535).default(4001),
+  /** Expired or revoked sessions are kept this long before the maintenance job deletes them. */
+  SESSION_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(30),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   CORS_ORIGINS: z
     .string()
