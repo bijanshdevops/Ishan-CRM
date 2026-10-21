@@ -11,6 +11,7 @@ const PASSWORD = 'Sales-Spec-Passw0rd';
 interface Res {
   status: number;
   body: any;
+  headers: Record<string, any>;
 }
 
 describe.skipIf(!run)('sales (database)', () => {
@@ -47,7 +48,7 @@ describe.skipIf(!run)('sales (database)', () => {
     } catch {
       parsed = undefined;
     }
-    return { status: res.statusCode, body: parsed };
+    return { status: res.statusCode, body: parsed, headers: res.headers };
   }
 
   beforeAll(async () => {
