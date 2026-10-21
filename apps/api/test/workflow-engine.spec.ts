@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { Worker, QueueEvents } from 'bullmq';
 import { randomUUID } from 'node:crypto';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createEventsProcessor, type DispatchedEvent } from '../src/jobs/events';
 import { createWorkflowHandler, runWorkflow } from '../src/jobs/workflow-engine';
 import { QUEUES } from '../src/infra/queue/queues';
@@ -230,6 +230,16 @@ describe.skipIf(!db)('workflow engine (database)', () => {
     await mkUser('actor');
     await mkUser('creator');
     await mkUser('off', 'DISABLED');
+  });
+
+  // Workflows of earlier tests must not react to this test's events.
+  beforeEach(async () => {
+    if (workflowIds.length) {
+      await prisma.workflow.updateMany({
+        where: { id: { in: workflowIds } },
+        data: { enabled: false },
+      });
+    }
   });
 
   afterAll(async () => {

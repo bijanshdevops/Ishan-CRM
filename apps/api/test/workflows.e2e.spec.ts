@@ -106,7 +106,7 @@ describe.skipIf(!run)('workflows (database)', () => {
       await prisma.workflow.deleteMany({
         where: { OR: [{ createdById: { in: all } }, { organizationId: otherOrgId }] },
       });
-      await prisma.auditLog.deleteMany({ where: { actorId: { in: all } } });
+      // audit_logs is append-only by design; the rows stay.
       await prisma.user.deleteMany({ where: { id: { in: all } } });
       if (otherOrgId) await prisma.organization.delete({ where: { id: otherOrgId } });
     }
