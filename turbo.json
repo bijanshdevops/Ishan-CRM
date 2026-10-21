@@ -19,5 +19,5 @@
       "dependsOn": ["^build"]
     }
   },
-  "globalPassThroughEnv": ["DATABASE_URL", "RUN_DB_TESTS", "CI", "SHADOW_DATABASE_URL"]
+  "globalPassThroughEnv": ["DATABASE_URL", "RUN_DB_TESTS", "CI", "SHADOW_DATABASE_URL", "REDIS_URL"]
 }
