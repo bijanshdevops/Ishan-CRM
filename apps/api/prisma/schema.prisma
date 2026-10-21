@@ -435,6 +435,8 @@ model Campaign {
   owner        User?        @relation("CampaignOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   createdBy    User?        @relation("CampaignCreator", fields: [createdById], references: [id], onDelete: SetNull)
   leads        Lead[]
+  sending      CampaignSending?
+  recipients   CampaignRecipient[]
 
   @@index([organizationId, id(sort: Desc)])
   @@index([organizationId, status])
@@ -888,4 +890,69 @@ model EmailVerificationToken {
   @@index([userId])
   @@index([expiresAt])
   @@map("email_verification_tokens")
+}
+
+/// The one e-mail send of a campaign (ADR 0015).
+model CampaignSending {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  campaignId     String    @unique @map("campaign_id") @db.Uuid
+  subject        String
+  body           String
+  /// {tagIds, kind}; validated by @ishan/contracts.
+  audience       Json
+  /// DRAFT, SENDING, DONE or CANCELED.
+  status         String    @default("DRAFT")
+  startedById    String?   @map("started_by_id") @db.Uuid
+  startedAt      DateTime? @map("started_at") @db.Timestamptz(6)
+  finishedAt     DateTime? @map("finished_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  campaign   Campaign            @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  recipients CampaignRecipient[]
+
+  @@index([organizationId, status])
+  @@map("campaign_sendings")
+}
+
+/// Snapshot of one recipient and the outbox row of their e-mail.
+model CampaignRecipient {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  sendingId      String    @map("sending_id") @db.Uuid
+  campaignId     String    @map("campaign_id") @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  customerId     String?   @map("customer_id") @db.Uuid
+  email          String
+  name           String
+  /// PENDING, SENT, FAILED or SKIPPED.
+  status         String    @default("PENDING")
+  attempt        Int       @default(0)
+  nextAttemptAt  DateTime? @map("next_attempt_at") @db.Timestamptz(6)
+  lastError      String?   @map("last_error")
+  sentAt         DateTime? @map("sent_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  sending  CampaignSending @relation(fields: [sendingId], references: [id], onDelete: Cascade)
+  campaign Campaign        @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([sendingId, email])
+  @@index([status, nextAttemptAt])
+  @@index([sendingId, status])
+  @@index([createdAt])
+  @@map("campaign_recipients")
+}
+
+/// Addresses that must never receive marketing e-mail. Never purged.
+model MarketingSuppression {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  email          String
+  /// UNSUBSCRIBED, BOUNCED or MANUAL.
+  reason         String
+  createdById    String?  @map("created_by_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([organizationId, email])
+  @@map("marketing_suppressions")
 }

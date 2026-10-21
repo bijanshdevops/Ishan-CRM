@@ -21,6 +21,6 @@ import { NotificationsService } from './notifications.service';
     MailerService,
     { provide: MAIL_TRANSPORT, useValue: null },
   ],
-  exports: [NotificationsService],
+  exports: [NotificationsService, MailerService],
 })
 export class NotificationsModule {}

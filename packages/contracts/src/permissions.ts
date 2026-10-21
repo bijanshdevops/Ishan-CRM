@@ -38,6 +38,8 @@ export const PERMISSIONS = {
   CAMPAIGNS_READ: 'campaigns.read',
   CAMPAIGNS_WRITE: 'campaigns.write',
   CAMPAIGNS_DELETE: 'campaigns.delete',
+  /** Sending marketing e-mail to customers affects the organization's mail reputation: admin only (ADR 0015). */
+  CAMPAIGNS_SEND: 'campaigns.send',
   WORKFLOWS_READ: 'workflows.read',
   WORKFLOWS_WRITE: 'workflows.write',
   WORKFLOWS_DELETE: 'workflows.delete',

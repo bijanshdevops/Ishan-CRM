@@ -13,6 +13,7 @@ import {
   emailChannelEnabled,
   publishEmails,
 } from './emails';
+import { createCampaignEmailProcessor, publishCampaignEmails } from './campaign-emails';
 import { createWebhookProcessor, publishDeliveries } from './webhooks';
 import { CryptoService } from '../modules/auth/crypto.service';
 
@@ -40,8 +41,10 @@ export async function startWorker(
       publishEvents: (ids) => publishEventIds(queues, ids),
       webhookDeliveryRetentionDays: config.WEBHOOK_DELIVERY_RETENTION_DAYS,
       emailDeliveryRetentionDays: config.EMAIL_DELIVERY_RETENTION_DAYS,
+      campaignRecipientRetentionDays: config.CAMPAIGN_RECIPIENT_RETENTION_DAYS,
       publishDeliveries: (items) => publishDeliveries(queues, items),
       publishEmails: (items) => publishEmails(queues, items),
+      publishCampaignEmails: (items) => publishCampaignEmails(queues, items),
       log,
     }),
     { connection: queues.newConnection(), concurrency: 1 },

@@ -15,3 +15,4 @@ export * from './notifications';
 export * from './workflows';
 export * from './webhooks';
 export * from './email-notifications';
+export * from './campaign-sending';

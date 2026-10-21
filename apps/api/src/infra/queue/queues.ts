@@ -4,6 +4,7 @@ export const QUEUES = {
   events: 'events',
   webhooks: 'webhooks',
   emails: 'emails',
+  campaignEmails: 'campaign-emails',
 } as const;
 
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];
@@ -20,6 +21,8 @@ export const MAINTENANCE_JOBS = {
   sweepEmailDeliveries: 'sweep-email-deliveries',
   purgeEmailDeliveries: 'purge-email-deliveries',
   purgeEmailVerificationTokens: 'purge-email-verification-tokens',
+  sweepCampaignRecipients: 'sweep-campaign-recipients',
+  purgeCampaignRecipients: 'purge-campaign-recipients',
 } as const;
 
 export const EVENT_JOBS = {
@@ -32,6 +35,10 @@ export const WEBHOOK_JOBS = {
 
 export const EMAIL_JOBS = {
   send: 'send-email',
+} as const;
+
+export const CAMPAIGN_JOBS = {
+  send: 'send-campaign-email',
 } as const;
 
 export type MaintenanceJobName = (typeof MAINTENANCE_JOBS)[keyof typeof MAINTENANCE_JOBS];
@@ -99,5 +106,15 @@ export const MAINTENANCE_SCHEDULES: ReadonlyArray<{
     id: 'daily-purge-email-verification-tokens',
     job: MAINTENANCE_JOBS.purgeEmailVerificationTokens,
     pattern: '55 0 * * *',
+  },
+  {
+    id: 'minutely-sweep-campaign-recipients',
+    job: MAINTENANCE_JOBS.sweepCampaignRecipients,
+    pattern: '* * * * *',
+  },
+  {
+    id: 'daily-purge-campaign-recipients',
+    job: MAINTENANCE_JOBS.purgeCampaignRecipients,
+    pattern: '5 1 * * *',
   },
 ];

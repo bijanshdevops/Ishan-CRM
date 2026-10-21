@@ -1,6 +1,11 @@
 import type { Job } from 'bullmq';
 import type { PrismaService } from '../infra/prisma.service';
 import { MAINTENANCE_JOBS } from '../infra/queue/queues';
+import {
+  findDueCampaignRecipients,
+  finishStalledSendings,
+  purgeCampaignRecipients,
+} from './campaign-emails';
 import { findDueEmails, purgeEmailDeliveries, purgeEmailVerificationTokens } from './emails';
 import { findDueDeliveries, purgeWebhookDeliveries } from './webhooks';
 import { findUndispatchedEventIds, purgeDispatchedEvents, scanTimeEvents } from './events';
@@ -66,6 +71,10 @@ export interface MaintenanceDeps {
     | 'webhookDelivery'
     | 'emailDelivery'
     | 'emailVerificationToken'
+    | 'campaignRecipient'
+    | 'campaignSending'
+    | 'campaign'
+    | 'marketingSuppression'
   >;
   retentionDays: number;
   eventRetentionDays: number;
@@ -73,12 +82,15 @@ export interface MaintenanceDeps {
   workflowRunRetentionDays: number;
   webhookDeliveryRetentionDays: number;
   emailDeliveryRetentionDays: number;
+  campaignRecipientRetentionDays: number;
   /** Hands event ids to the `events` queue (see DomainEventsService.publish). */
   publishEvents: (ids: string[]) => Promise<void>;
   /** Hands due webhook deliveries to the `webhooks` queue. */
   publishDeliveries: (items: Array<{ id: string; attempt: number }>) => Promise<void>;
   /** Hands due e-mail deliveries to the `emails` queue. */
   publishEmails: (items: Array<{ id: string; attempt: number }>) => Promise<void>;
+  /** Hands due campaign recipients to the `campaign-emails` queue. */
+  publishCampaignEmails: (items: Array<{ id: string; attempt: number }>) => Promise<void>;
   now?: () => Date;
   log?: { info: (obj: object, msg: string) => void };
 }
@@ -155,6 +167,24 @@ export function createMaintenanceProcessor(deps: MaintenanceDeps) {
       }
       case MAINTENANCE_JOBS.purgeEmailVerificationTokens: {
         const deleted = await purgeEmailVerificationTokens(deps.prisma, now());
+        deps.log?.info({ job: job.name, deleted }, 'maintenance job finished');
+        return { deleted };
+      }
+      case MAINTENANCE_JOBS.sweepCampaignRecipients: {
+        const due = await findDueCampaignRecipients(deps.prisma, now());
+        await deps.publishCampaignEmails(due);
+        const closed = await finishStalledSendings(deps.prisma, now());
+        if (due.length || closed) {
+          deps.log?.info({ job: job.name, queued: due.length, closed }, 'swept campaign emails');
+        }
+        return { deleted: 0, queued: due.length };
+      }
+      case MAINTENANCE_JOBS.purgeCampaignRecipients: {
+        const deleted = await purgeCampaignRecipients(
+          deps.prisma,
+          now(),
+          deps.campaignRecipientRetentionDays,
+        );
         deps.log?.info({ job: job.name, deleted }, 'maintenance job finished');
         return { deleted };
       }
