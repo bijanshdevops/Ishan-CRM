@@ -50,6 +50,13 @@ test.describe.serial('Ishan CRM end-to-end', () => {
     await a11y(page, '/account');
   });
 
+  test('account page hides the e-mail switch when the server has no SMTP', async ({ page }) => {
+    await loginAdmin(page);
+    await page.goto('/account');
+    await expect(page.getByText(fa.account.mfaTitle)).toBeVisible();
+    await expect(page.getByText(fa.account.emailTitle)).toHaveCount(0);
+  });
+
   test('customer lifecycle: create, contact, tag, search', async ({ page }) => {
     await loginAdmin(page);
     await page.goto('/customers');
