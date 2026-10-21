@@ -365,7 +365,7 @@ describe.skipIf(!run)('products, quotes and contracts (database)', () => {
       where: { type: 'quote.accepted', entityId: q.id },
     });
     expect(accepted).toHaveLength(1);
-    expect(accepted[0].payload).toMatchObject({ customerId: q.customerId });
+    expect(accepted[0].payload).toMatchObject({ customerId });
     expect((await call('POST', `/quotes/${q.id}/revise`, 'q-sales')).status).toBe(409); // accepted is final
     const c = await call('POST', '/contracts', 'q-manager', {
       quoteId: q.id,
