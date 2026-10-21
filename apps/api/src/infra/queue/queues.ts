@@ -19,6 +19,7 @@ export const MAINTENANCE_JOBS = {
   purgeWebhookDeliveries: 'purge-webhook-deliveries',
   sweepEmailDeliveries: 'sweep-email-deliveries',
   purgeEmailDeliveries: 'purge-email-deliveries',
+  purgeEmailVerificationTokens: 'purge-email-verification-tokens',
 } as const;
 
 export const EVENT_JOBS = {
@@ -93,5 +94,10 @@ export const MAINTENANCE_SCHEDULES: ReadonlyArray<{
     id: 'daily-purge-email-deliveries',
     job: MAINTENANCE_JOBS.purgeEmailDeliveries,
     pattern: '50 0 * * *',
+  },
+  {
+    id: 'daily-purge-email-verification-tokens',
+    job: MAINTENANCE_JOBS.purgeEmailVerificationTokens,
+    pattern: '55 0 * * *',
   },
 ];

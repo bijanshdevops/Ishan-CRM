@@ -1,7 +1,7 @@
 import type { Job } from 'bullmq';
 import type { PrismaService } from '../infra/prisma.service';
 import { MAINTENANCE_JOBS } from '../infra/queue/queues';
-import { findDueEmails, purgeEmailDeliveries } from './emails';
+import { findDueEmails, purgeEmailDeliveries, purgeEmailVerificationTokens } from './emails';
 import { findDueDeliveries, purgeWebhookDeliveries } from './webhooks';
 import { findUndispatchedEventIds, purgeDispatchedEvents, scanTimeEvents } from './events';
 
@@ -65,6 +65,7 @@ export interface MaintenanceDeps {
     | 'workflowRun'
     | 'webhookDelivery'
     | 'emailDelivery'
+    | 'emailVerificationToken'
   >;
   retentionDays: number;
   eventRetentionDays: number;
@@ -149,6 +150,11 @@ export function createMaintenanceProcessor(deps: MaintenanceDeps) {
           now(),
           deps.emailDeliveryRetentionDays,
         );
+        deps.log?.info({ job: job.name, deleted }, 'maintenance job finished');
+        return { deleted };
+      }
+      case MAINTENANCE_JOBS.purgeEmailVerificationTokens: {
+        const deleted = await purgeEmailVerificationTokens(deps.prisma, now());
         deps.log?.info({ job: job.name, deleted }, 'maintenance job finished');
         return { deleted };
       }

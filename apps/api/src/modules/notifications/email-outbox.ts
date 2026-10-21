@@ -18,7 +18,12 @@ export async function queueNotificationEmail(
   });
   if (!pref?.emailEnabled) return false;
   const user = await db.user.findFirst({
-    where: { id: notification.userId, status: 'ACTIVE', deletedAt: null },
+    where: {
+      id: notification.userId,
+      status: 'ACTIVE',
+      deletedAt: null,
+      emailVerifiedAt: { not: null },
+    },
     select: { id: true },
   });
   if (!user) return false;

@@ -4,13 +4,17 @@ import { UpdateNotificationPreferencesSchema } from '@ishan/contracts';
 import type { z } from 'zod';
 import { AuthenticatedOnly, CurrentUser, type AuthUser } from '../../common/decorators';
 import { ZodValidationPipe } from '../../common/zod.pipe';
+import { EmailVerificationService } from './email-verification.service';
 import { NotificationPreferencesService } from './notification-preferences.service';
 
 /** Personal settings: no permission needed, everything is scoped to the caller. */
 @ApiTags('account')
 @Controller('account')
 export class NotificationPreferencesController {
-  constructor(private readonly prefs: NotificationPreferencesService) {}
+  constructor(
+    private readonly prefs: NotificationPreferencesService,
+    private readonly verification: EmailVerificationService,
+  ) {}
 
   @Get('notification-preferences')
   @AuthenticatedOnly()
@@ -33,5 +37,12 @@ export class NotificationPreferencesController {
   @AuthenticatedOnly()
   test(@CurrentUser() actor: AuthUser) {
     return this.prefs.sendTest(actor);
+  }
+
+  @Post('notification-email/verify-request')
+  @HttpCode(200)
+  @AuthenticatedOnly()
+  verifyRequest(@CurrentUser() actor: AuthUser) {
+    return this.verification.request(actor);
   }
 }

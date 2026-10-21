@@ -33,6 +33,8 @@ describe.skipIf(!run)('email notifications (database)', () => {
     'em-manager': 'manager',
     'em-sales': 'sales',
     'em-viewer': 'viewer',
+    'em-unver': 'viewer',
+    'em-unver2': 'viewer',
   };
 
   let smtp: SMTPServer;
@@ -63,6 +65,34 @@ describe.skipIf(!run)('email notifications (database)', () => {
     }
     return { status: res.statusCode, body: parsed };
   }
+
+  /** Decoded text of every MIME part, so tokens survive base64 / quoted-printable bodies. */
+  const bodyText = (raw: string) => {
+    // quoted-printable applies to the raw message only, never to text decoded from base64
+    let out = raw
+      .replace(/=\r?\n/g, '')
+      .replace(/=([0-9A-F]{2})/g, (_m, h: string) => String.fromCharCode(parseInt(h, 16)));
+    for (const m of raw.matchAll(
+      /Content-Transfer-Encoding: base64\r?\n\r?\n([A-Za-z0-9+/=\r\n]+)/gi,
+    )) {
+      out += '\n' + Buffer.from(m[1]!.replace(/\s+/g, ''), 'base64').toString('utf8');
+    }
+    return out;
+  };
+  const tokenFrom = (mail: Mail) =>
+    /verify-email\?token=([A-Za-z0-9_-]{20,})/.exec(bodyText(mail.data))?.[1];
+  const hashOf = async (t: string) =>
+    (await import('../src/modules/auth/crypto.service')).CryptoService.sha256Hex(t);
+  const plant = async (who: string, token: string, over: Record<string, unknown> = {}) =>
+    prisma.emailVerificationToken.create({
+      data: {
+        userId: ids[who],
+        tokenHash: await hashOf(token),
+        email: `${who}@example.com`,
+        expiresAt: new Date(Date.now() + 3_600_000),
+        ...over,
+      },
+    });
 
   const optIn = (who: string, enabled = true) =>
     prisma.notificationPreference.upsert({
@@ -140,6 +170,7 @@ describe.skipIf(!run)('email notifications (database)', () => {
           email: `${name}@example.com`,
           name,
           passwordHash: hash,
+          emailVerifiedAt: name.startsWith('em-unver') ? null : new Date(),
         },
       });
       ids[name] = user.id;
@@ -181,11 +212,12 @@ describe.skipIf(!run)('email notifications (database)', () => {
   });
 
   it('lets every role manage only its own preference, off by default', async () => {
-    for (const who of Object.keys(roleOf)) {
+    for (const who of Object.keys(roleOf).filter((w) => !w.startsWith('em-unver'))) {
       const before = await call('GET', '/account/notification-preferences', who);
       expect(before.status).toBe(200);
       expect(before.body).toEqual({
         emailAvailable: true,
+        emailVerified: true,
         emailEnabled: false,
         email: `${who}@example.com`,
       });
@@ -458,6 +490,184 @@ describe.skipIf(!run)('email notifications (database)', () => {
     expect(second.filter((x: any) => x.emailDelivery)).toHaveLength(1);
     await prisma.workflow.delete({ where: { id: wf.id } });
     await optIn('em-sales', false);
+  });
+
+  // --- address verification (ADR 0014) --------------------------------------------------------
+  it('refuses to turn e-mail on or send a test until the address is verified', async () => {
+    const prefs = await call('GET', '/account/notification-preferences', 'em-unver');
+    expect(prefs.body).toMatchObject({ emailAvailable: true, emailVerified: false });
+    const on = await call('PUT', '/account/notification-preferences', 'em-unver', {
+      emailEnabled: true,
+    });
+    expect(on.status).toBe(422);
+    expect(on.body.code ?? on.body.error?.code).toBe('email_not_verified');
+    const test = await call('POST', '/account/notification-email/test', 'em-unver');
+    expect(test.status).toBe(422);
+    expect(inbox).toHaveLength(0);
+  });
+
+  it('never queues or sends to an unverified address', async () => {
+    await optIn('em-unver2');
+    const n = await prisma.notification.create({
+      data: { userId: ids['em-unver2'], type: 'system', title: 'x' },
+    });
+    expect(
+      await outbox.queueNotificationEmail(prisma, { id: n.id, userId: n.userId }, new Date()),
+    ).toBe(false);
+    // queued before the gate existed (or by a bug): the sender still refuses
+    const d = await prisma.emailDelivery.create({
+      data: { notificationId: n.id, userId: n.userId, nextAttemptAt: new Date(Date.now() - 1000) },
+    });
+    expect(await jobs.sendEmailDelivery(deps, d.id)).toBe('skipped');
+    expect(inbox).toHaveLength(0);
+    await optIn('em-unver2', false);
+  });
+
+  it('requires authentication to ask for a link, and no SMTP details leak on failure', async () => {
+    expect((await call('POST', '/account/notification-email/verify-request', null)).status).toBe(
+      401,
+    );
+    rejects = [554];
+    const res = await call('POST', '/account/notification-email/verify-request', 'em-unver2');
+    expect(res.status).toBe(503);
+    expect(JSON.stringify(res.body)).not.toMatch(/554|127\.0\.0\.1/);
+    // the failed attempt left no usable token behind
+    expect(await prisma.emailVerificationToken.count({ where: { userId: ids['em-unver2'] } })).toBe(
+      0,
+    );
+  });
+
+  it('answers 422 to users who are already verified', async () => {
+    const res = await call('POST', '/account/notification-email/verify-request', 'em-admin');
+    expect(res.status).toBe(422);
+    expect(res.body.code ?? res.body.error?.code).toBe('email_already_verified');
+  });
+
+  it('verifies with a one-time link; a newer link voids the older one', async () => {
+    expect(
+      (await call('POST', '/account/notification-email/verify-request', 'em-unver')).status,
+    ).toBe(200);
+    const first = tokenFrom(inbox.at(-1)!)!;
+    expect(first).toBeTruthy();
+    expect(inbox.at(-1)!.to).toEqual(['em-unver@example.com']);
+    expect(
+      (await call('POST', '/account/notification-email/verify-request', 'em-unver')).status,
+    ).toBe(200);
+    const second = tokenFrom(inbox.at(-1)!)!;
+    expect(second).not.toBe(first);
+    expect(await call('POST', '/auth/verify-email', null, { token: first })).toMatchObject({
+      status: 400,
+    });
+
+    const ok = await call('POST', '/auth/verify-email', null, { token: second });
+    expect(ok.status).toBe(200);
+    expect(ok.body).toEqual({ verified: true });
+    const u = await prisma.user.findUniqueOrThrow({ where: { id: ids['em-unver'] } });
+    expect(u.emailVerifiedAt).toBeInstanceOf(Date);
+    expect(
+      await prisma.auditLog.count({
+        where: { action: 'user.email_verified', entityId: ids['em-unver'] },
+      }),
+    ).toBe(1);
+    // single use
+    const again = await call('POST', '/auth/verify-email', null, { token: second });
+    expect(again.status).toBe(400);
+    expect(again.body.code ?? again.body.error?.code).toBe('invalid_token');
+    // and now the switch works
+    const on = await call('PUT', '/account/notification-preferences', 'em-unver', {
+      emailEnabled: true,
+    });
+    expect(on.status).toBe(200);
+    expect(on.body).toMatchObject({ emailVerified: true, emailEnabled: true });
+    await optIn('em-unver', false);
+  });
+
+  it('stores only a hash of the token', async () => {
+    const rows = await prisma.emailVerificationToken.findMany({
+      where: { userId: ids['em-unver'] },
+    });
+    expect(rows.length).toBeGreaterThan(0);
+    for (const r of rows) expect(r.tokenHash).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('gives the same answer for unknown, expired, used, moved and disabled', async () => {
+    const codes = async (token: string) => {
+      const r = await call('POST', '/auth/verify-email', null, { token });
+      return [r.status, r.body.code ?? r.body.error?.code];
+    };
+    const unknown = 'u'.repeat(43);
+    const expired = 'e'.repeat(43);
+    const used = 'd'.repeat(43);
+    const moved = 'm'.repeat(43);
+    const off = 'o'.repeat(43);
+    await plant('em-unver2', expired, {
+      expiresAt: new Date(Date.now() - 1000),
+      createdAt: new Date(Date.now() - 2000),
+    });
+    await plant('em-unver2', used, { usedAt: new Date() });
+    await plant('em-unver2', moved, { email: 'someone-else@example.com' });
+    await plant('em-unver2', off);
+    await prisma.user.update({ where: { id: ids['em-unver2'] }, data: { status: 'DISABLED' } });
+    for (const t of [unknown, expired, used, moved, off]) {
+      expect(await codes(t), t).toEqual([400, 'invalid_token']);
+    }
+    await prisma.user.update({ where: { id: ids['em-unver2'] }, data: { status: 'ACTIVE' } });
+    expect(
+      (await prisma.user.findUniqueOrThrow({ where: { id: ids['em-unver2'] } })).emailVerifiedAt,
+    ).toBeNull();
+  });
+
+  it('validates the body of the public endpoint', async () => {
+    for (const body of [{}, { token: 'short' }, { token: 'x'.repeat(30), extra: 1 }]) {
+      expect((await call('POST', '/auth/verify-email', null, body)).status).toBe(400);
+    }
+  });
+
+  it('accepts only one of two concurrent clicks on the same link', async () => {
+    const t = 'c'.repeat(43);
+    await prisma.emailVerificationToken.deleteMany({ where: { userId: ids['em-unver2'] } });
+    await plant('em-unver2', t);
+    const res = await Promise.all([
+      call('POST', '/auth/verify-email', null, { token: t }),
+      call('POST', '/auth/verify-email', null, { token: t }),
+      call('POST', '/auth/verify-email', null, { token: t }),
+    ]);
+    expect(res.map((r) => r.status).sort()).toEqual([200, 400, 400]);
+    await prisma.user.update({ where: { id: ids['em-unver2'] }, data: { emailVerifiedAt: null } });
+  });
+
+  it('limits link requests per user per hour', async () => {
+    await prisma.emailVerificationToken.deleteMany({ where: { userId: ids['em-unver2'] } });
+    // one slot was already spent by the failed-SMTP request above
+    for (let i = 0; i < 2; i++) {
+      expect(
+        (await call('POST', '/account/notification-email/verify-request', 'em-unver2')).status,
+      ).toBe(200);
+    }
+    expect(
+      (await call('POST', '/account/notification-email/verify-request', 'em-unver2')).status,
+    ).toBe(429);
+  });
+
+  it('purges old tokens and enforces the token constraints', async () => {
+    const old = await plant('em-unver2', 'p'.repeat(43), {
+      expiresAt: new Date(Date.now() - 10 * 86_400_000),
+      createdAt: new Date(Date.now() - 11 * 86_400_000),
+    });
+    const live = await plant('em-unver2', 'q'.repeat(43));
+    await jobs.purgeEmailVerificationTokens(prisma, new Date());
+    expect(await prisma.emailVerificationToken.count({ where: { id: old.id } })).toBe(0);
+    expect(await prisma.emailVerificationToken.count({ where: { id: live.id } })).toBe(1);
+    await expect(
+      prisma.emailVerificationToken.create({
+        data: {
+          userId: ids['em-unver2'],
+          tokenHash: 'short',
+          email: 'a@example.com',
+          expiresAt: new Date(Date.now() + 1000),
+        },
+      }),
+    ).rejects.toThrow();
   });
 
   it('enforces the database invariants and cascades', async () => {
