@@ -473,6 +473,7 @@ describe.skipIf(!db)('workflow engine (database)', () => {
         await new Promise((r) => setTimeout(r, 100));
       }
       const run = await prisma.workflowRun.findFirstOrThrow({ where: { workflowId: wfId } });
+      expect(run.steps[0].note ?? 'no-note').toBe('no-note');
       expect({ status: run.status, error: run.error, steps: run.steps }).toMatchObject({
         status: 'SUCCEEDED',
         steps: [{ action: 'notify', status: 'done' }],
