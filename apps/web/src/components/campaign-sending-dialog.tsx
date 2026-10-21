@@ -145,9 +145,16 @@ export function CampaignSendingDialog({
       ) : state.isError ? (
         <ErrorBanner message={msg(state.error)} onRetry={() => void state.refetch()} />
       ) : !state.data?.emailAvailable ? (
-        <p role="status" className="text-sm">
-          {t.unavailable}
-        </p>
+        <>
+          <p role="status" className="text-sm">
+            {t.unavailable}
+          </p>
+          <div>
+            <Button variant="ghost" onClick={onClose}>
+              {fa.common.close}
+            </Button>
+          </div>
+        </>
       ) : (
         <div className="flex flex-col gap-4">
           {error ? <ErrorBanner message={error} /> : null}
