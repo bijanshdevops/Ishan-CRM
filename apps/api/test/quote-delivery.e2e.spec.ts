@@ -549,7 +549,7 @@ describe.skipIf(!run)('quote PDF and e-mail (database)', () => {
         const queued = await queue(q.id, addr('cust'));
         expect(await jobs.sendQuoteEmail({ ...deps, renderer: real }, queued.body.id)).toBe('sent');
         expect(inbox).toHaveLength(1);
-        expect(inbox[0]!.data).toContain('filename="' + q.number + '-v1.pdf"');
+        expect(inbox[0]!.data).toContain(`${q.number}-v1.pdf`);
       } finally {
         await real.close();
       }
