@@ -469,21 +469,13 @@ describe.skipIf(!db)('workflow engine (database)', () => {
       });
       await svc.publish([id]);
       for (let i = 0; i < 100; i++) {
-        if ((await prisma.workflowRun.count({ where: { workflowId: wfId } })) > 0) break;
+        if ((await prisma.workflowRun.count({ where: { workflowId: wfId, eventId: id } })) > 0)
+          break;
         await new Promise((r) => setTimeout(r, 100));
       }
-      const run = await prisma.workflowRun.findFirstOrThrow({ where: { workflowId: wfId } });
-      const evRow = await prisma.domainEvent.findUniqueOrThrow({ where: { id: run.eventId } });
-      const ownerRow = await prisma.user.findUnique({ where: { id: users.owner } });
-      expect({
-        sameEvent: run.eventId === id,
-        payloadOwner: evRow.payload.ownerId,
-        owner: users.owner,
-        ownerStatus: ownerRow?.status,
-        ownerOrg: ownerRow?.organizationId,
-        orgId,
-        deleted: ownerRow?.deletedAt,
-      }).toEqual({});
+      const run = await prisma.workflowRun.findFirstOrThrow({
+        where: { workflowId: wfId, eventId: id },
+      });
       expect(run.steps[0].note ?? 'no-note').toBe('no-note');
       expect({ status: run.status, error: run.error, steps: run.steps }).toMatchObject({
         status: 'SUCCEEDED',
