@@ -167,6 +167,75 @@ test.describe.serial('Ishan CRM end-to-end', () => {
     });
   });
 
+  test('webhooks: create with a one-time secret, test, rotate, disable, delete', async ({
+    page,
+  }) => {
+    const t = fa.webhooks;
+    await loginAdmin(page);
+    await page.goto('/webhooks');
+    await expect(page.getByText(t.empty)).toBeVisible();
+    await a11y(page, '/webhooks');
+
+    await page.getByRole('link', { name: t.add }).click();
+    await expect(page.getByRole('heading', { name: t.addTitle })).toBeVisible();
+    await page.getByLabel(t.name, { exact: true }).fill(`حسابداری ${run}`);
+    // the address must be reachable and public; a literal public IP needs no DNS in CI
+    await page.getByLabel(t.url, { exact: true }).fill('https://93.184.216.34/ishan-hook');
+    await a11y(page, '/webhooks/new');
+
+    // nothing selected → refused in the form, in Persian
+    await page.getByRole('button', { name: t.save }).click();
+    await expect(page.getByRole('alert').filter({ hasText: t.needEvent })).toBeVisible();
+    // private targets are refused by the server (SSRF guard)
+    await page.getByLabel(fa.workflows.triggers['deal.created'], { exact: true }).check();
+    await page.getByLabel(t.url, { exact: true }).fill('https://10.0.0.5/ishan-hook');
+    await page.getByRole('button', { name: t.save }).click();
+    await expect(page.getByRole('alert').filter({ hasText: 'شبکه' })).toBeVisible();
+    await page.getByLabel(t.url, { exact: true }).fill('https://93.184.216.34/ishan-hook');
+    await page.getByRole('button', { name: t.save }).click();
+
+    // the signing secret is shown exactly once
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByRole('heading', { name: t.secretTitle })).toBeVisible();
+    const secret = await dialog.getByLabel(t.secret).inputValue();
+    expect(secret).toMatch(/^whsec_[\w-]{43}$/);
+    await a11y(page, 'webhook secret dialog');
+    await dialog.getByRole('button', { name: t.secretDone }).click();
+
+    await expect(page.getByRole('heading', { name: `حسابداری ${run}` })).toBeVisible();
+    await expect(page.getByTestId('secret-hint')).toContainText(secret.slice(-4));
+    await expect(page.getByTestId('secret-hint')).not.toContainText(secret);
+    await expect(page.getByText(t.deliveriesEmpty)).toBeVisible();
+
+    // a test delivery is queued and appears in the history
+    await page.getByRole('button', { name: t.test, exact: true }).click();
+    await expect(page.getByText(t.testQueued)).toBeVisible();
+    await expect(page.getByRole('table').getByText(t.testEvent, { exact: true })).toBeVisible();
+    await a11y(page, '/webhooks/[id]');
+
+    // rotating gives a different secret and keeps the old one valid for 24 h
+    await page.getByRole('button', { name: t.rotate, exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: t.rotateConfirm }).click();
+    const rotated = await page.getByRole('dialog').getByLabel(t.secret).inputValue();
+    expect(rotated).toMatch(/^whsec_/);
+    expect(rotated).not.toBe(secret);
+    await page.getByRole('dialog').getByRole('button', { name: t.secretDone }).click();
+    await expect(page.getByTestId('secret-hint')).toContainText(rotated.slice(-4));
+    await expect(page.getByText(/کلید قبلی تا/)).toBeVisible();
+
+    await page.getByRole('button', { name: t.disable, exact: true }).click();
+    await expect(page.getByText(t.disabledToast)).toBeVisible();
+
+    // the list shows it, and deleting empties the list again
+    await page.goto('/webhooks');
+    const row = page.getByRole('row', { name: new RegExp(`حسابداری ${run}`) });
+    await expect(row.getByText(t.disabled, { exact: true })).toBeVisible();
+    await row.getByRole('button', { name: fa.common.delete, exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: fa.common.delete }).click();
+    await expect(page.getByText(t.deleted)).toBeVisible();
+    await expect(page.getByText(t.empty)).toBeVisible();
+  });
+
   test('activities: note, task and call on the customer file, then calendar and reminders', async ({
     page,
   }) => {
