@@ -719,6 +719,13 @@ export const fa = {
     current_session: 'نشست فعلی',
     revoke: 'پایان نشست',
     device: 'دستگاه',
+    emailTitle: 'اعلان‌ها به ایمیل',
+    emailSwitch: 'اعلان‌ها را به ایمیل هم بفرست',
+    emailHint: 'اعلان‌های گردش‌کار و هشدارهای سیستمی به نشانی زیر ارسال می‌شوند.',
+    emailOn: 'ارسال ایمیل روشن شد',
+    emailOff: 'ارسال ایمیل خاموش شد',
+    emailTest: 'ارسال ایمیل آزمایشی',
+    emailTestSent: 'ایمیل آزمایشی ارسال شد',
   },
 } as const;
 

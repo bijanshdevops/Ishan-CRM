@@ -5,6 +5,7 @@ import QRCode from 'qrcode';
 import { useEffect, useState } from 'react';
 import { ChangePasswordRequestSchema } from '@ishan/contracts';
 import { fa, formatJalaliDateTime } from '@ishan/i18n';
+import { NotificationEmailCard } from '@/components/notification-email-card';
 import { useToast } from '@/components/toast';
 import {
   Badge,
@@ -41,6 +42,7 @@ export default function AccountPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <PasswordCard />
         {!user.mustChangePassword ? <MfaCard /> : null}
+        {!user.mustChangePassword ? <NotificationEmailCard /> : null}
         {!user.mustChangePassword ? (
           <div className="lg:col-span-2">
             <SessionsCard />
