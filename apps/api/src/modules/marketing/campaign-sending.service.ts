@@ -418,68 +418,18 @@ export class CampaignSendingService {
     input: CreateSuppression,
     ip?: string,
   ): Promise<SuppressionDto> {
-    const row = await this.prisma.marketingSuppression.upsert({
-      where: {
-        organizationId_email: { organizationId: actor.organizationId, email: input.email },
-      },
-      create: {
-        organizationId: actor.organizationId,
-        email: input.email,
-        reason: 'MANUAL',
-        createdById: actor.id,
-      },
-      update: {},
-    });
-    await this.audit.record({
-      organizationId: actor.organizationId,
-      actorId: actor.id,
-      action: 'marketing.suppression_added',
-      entityType: 'suppression',
-      entityId: row.id,
-      ip,
-    });
-    return {
-      id: row.id,
-      email: row.email,
-      reason: row.reason as SuppressionDto['reason'],
-      createdAt: row.createdAt.toISOString(),
-    };
-  }
-
-  async removeSuppression(actor: AuthUser, id: string, ip?: string): Promise<void> {
-    const gone = await this.prisma.marketingSuppression.deleteMany({
-      where: { id, organizationId: actor.organizationId },
-    });
-    if (gone.count === 0) {
-      throw new NotFoundException({ code: 'not_found', message: 'نشانی در فهرست پیدا نشد.' });
-    }
-    await this.audit.record({
-      organizationId: actor.organizationId,
-      actorId: actor.id,
-      action: 'marketing.suppression_removed',
-      entityType: 'suppression',
-      entityId: id,
-      ip,
-    });
-  }
-
-  /** Public: the signed token is the credential. Idempotent. */
-  async unsubscribe(token: string, ip?: string): Promise<{ unsubscribed: true }> {
-    const v = verifyUnsubscribe(this.config.ENCRYPTION_KEY, token);
-    if (!v) {
-      throw new HttpException(
-        { code: 'invalid_token', message: 'پیوند لغو اشتراک نامعتبر است.' },
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-    const row = await this.prisma.marketingSuppression.upsert({
-      where: { organizationId_email: { organizationId: v.organizationId, email: v.email } },
-      create: { organizationId: v.organizationId, email: v.email, reason: 'UNSUBSCRIBED' },
-      update: {},
-      select: { id: true, createdAt: true },
+    const where = { organizationId: v.organizationId, email: v.email };
+    // createMany + skipDuplicates tells us atomically whether this call added the row.
+    const { count } = await this.prisma.marketingSuppression.createMany({
+      data: [{ ...where, reason: 'UNSUBSCRIBED' }],
+      skipDuplicates: true,
     });
     // Audit only the first time (a repeat click or a prefetch adds nothing).
-    if (Date.now() - row.createdAt.getTime() < 5000) {
+    if (count === 1) {
+      const row = await this.prisma.marketingSuppression.findFirstOrThrow({
+        where,
+        select: { id: true },
+      });
       await this.audit.record({
         organizationId: v.organizationId,
         actorId: null,
