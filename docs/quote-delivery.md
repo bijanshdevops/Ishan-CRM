@@ -38,3 +38,10 @@ at once. Typical latency is under a minute. Finished rows are kept as business r
 - _E-mail stays `PENDING`:_ the worker is not running or has no Chromium; check its log for `quote email failed`.
 - _Blank or boxed Persian text in the PDF:_ the font file did not load; the template embeds Vazirmatn from
   the `vazirmatn` package, so reinstall dependencies.
+
+## Screens (slice 12b)
+
+On a quote page: **دانلود PDF** (everyone who can read quotes), **ارسال با ایمیل** (writers, only for
+sent/accepted quotes) and the **ایمیل‌های ارسالی** list with status, attempts and the last error; a failed
+e-mail has **تلاش دوباره**. Without SMTP or Chromium the dialog says so and offers no send button; the print
+button always works.
