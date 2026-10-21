@@ -28,10 +28,23 @@ export async function purgeExpiredSessions(
   return res.count;
 }
 
+/** Deletes notifications the user read more than `retentionDays` ago. Unread ones are kept. */
+export async function purgeReadNotifications(
+  prisma: Pick<PrismaService, 'notification'>,
+  now: Date,
+  retentionDays: number,
+): Promise<number> {
+  const res = await prisma.notification.deleteMany({
+    where: { readAt: { lt: new Date(now.getTime() - retentionDays * DAY_MS) } },
+  });
+  return res.count;
+}
+
 export interface MaintenanceDeps {
-  prisma: Pick<PrismaService, 'session' | 'activity' | 'contract' | 'domainEvent'>;
+  prisma: Pick<PrismaService, 'session' | 'activity' | 'contract' | 'domainEvent' | 'notification'>;
   retentionDays: number;
   eventRetentionDays: number;
+  notificationRetentionDays: number;
   /** Hands event ids to the `events` queue (see DomainEventsService.publish). */
   publishEvents: (ids: string[]) => Promise<void>;
   now?: () => Date;
@@ -61,6 +74,15 @@ export function createMaintenanceProcessor(deps: MaintenanceDeps) {
       }
       case MAINTENANCE_JOBS.purgeDispatchedEvents: {
         const deleted = await purgeDispatchedEvents(deps.prisma, now(), deps.eventRetentionDays);
+        deps.log?.info({ job: job.name, deleted }, 'maintenance job finished');
+        return { deleted };
+      }
+      case MAINTENANCE_JOBS.purgeReadNotifications: {
+        const deleted = await purgeReadNotifications(
+          deps.prisma,
+          now(),
+          deps.notificationRetentionDays,
+        );
         deps.log?.info({ job: job.name, deleted }, 'maintenance job finished');
         return { deleted };
       }
