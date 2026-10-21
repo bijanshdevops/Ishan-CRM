@@ -34,6 +34,15 @@ export function NotificationEmailCard() {
     },
     onError: (e) => setError(msg(e)),
   });
+  const [sent, setSent] = useState(false);
+  const verify = useMutation({
+    mutationFn: () => api('/account/notification-email/verify-request', { method: 'POST' }),
+    onSuccess: () => {
+      setSent(true);
+      toast(t.emailVerifySent);
+    },
+    onError: (e) => setError(msg(e)),
+  });
   const test = useMutation({
     mutationFn: () => api('/account/notification-email/test', { method: 'POST' }),
     onSuccess: () => toast(t.emailTestSent),
@@ -46,42 +55,65 @@ export function NotificationEmailCard() {
     <Card
       title={t.emailTitle}
       actions={
-        <Badge tone={p.emailEnabled ? 'success' : 'neutral'}>
-          {p.emailEnabled ? t.mfaOn : t.mfaOff}
+        <Badge tone={p.emailVerified ? 'success' : 'neutral'}>
+          {p.emailVerified ? t.emailVerified : t.emailUnverified}
         </Badge>
       }
     >
       {error ? <ErrorBanner message={error} /> : null}
       <div className="mt-3 flex flex-col gap-4">
-        <p className="text-sm">{t.emailHint}</p>
+        <p className="text-sm">{p.emailVerified ? t.emailHint : t.emailVerifyHint}</p>
         <code dir="ltr" className="w-fit rounded bg-[var(--color-surface-2)] px-2 py-1 text-sm">
           {p.email}
         </code>
-        <label className="flex min-h-10 items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            className="size-4"
-            checked={p.emailEnabled}
-            disabled={update.isPending}
-            onChange={(e) => {
-              setError(null);
-              update.mutate(e.target.checked);
-            }}
-          />
-          {t.emailSwitch}
-        </label>
-        <div>
-          <Button
-            variant="ghost"
-            loading={test.isPending}
-            onClick={() => {
-              setError(null);
-              test.mutate();
-            }}
-          >
-            {t.emailTest}
-          </Button>
-        </div>
+        {p.emailVerified ? (
+          <>
+            <label className="flex min-h-10 items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="size-4"
+                checked={p.emailEnabled}
+                disabled={update.isPending}
+                onChange={(e) => {
+                  setError(null);
+                  update.mutate(e.target.checked);
+                }}
+              />
+              {t.emailSwitch}
+            </label>
+            <div>
+              <Button
+                variant="ghost"
+                loading={test.isPending}
+                onClick={() => {
+                  setError(null);
+                  test.mutate();
+                }}
+              >
+                {t.emailTest}
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            {sent ? (
+              <p role="status" className="text-sm">
+                {t.emailVerifySentHint}
+              </p>
+            ) : null}
+            <div>
+              <Button
+                loading={verify.isPending}
+                onClick={() => {
+                  setError(null);
+                  verify.mutate();
+                }}
+              >
+                {t.emailVerifySend}
+              </Button>
+            </div>
+          </>
+        )}
       </div>
     </Card>
   );
