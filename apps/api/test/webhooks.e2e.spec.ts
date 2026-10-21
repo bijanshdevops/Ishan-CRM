@@ -278,7 +278,8 @@ describe.skipIf(!run)('webhooks (database)', () => {
     const meta = await bad({ url: 'https://169.254.169.254/latest' });
     expect(meta.status).toBe(400);
     expect(meta.body.code ?? meta.body.error?.code).toBe('UNSAFE_WEBHOOK_URL');
-    expect((await bad({ url: 'https://[::1]/h' })).status).toBe(400);
+    expect((await bad({ url: 'https://[fe80::1]/h' })).status).toBe(400);
+    expect((await bad({ url: 'https://[::ffff:127.0.0.1]/h' })).status).toBe(400);
     expect((await bad({ url: 'https://u:p@example.com/h' })).status).toBe(400);
     expect((await bad({ url: 'http://10.0.0.5:8080/h' })).status).toBe(400); // allowLocal ≠ any private IP
     expect((await bad({ eventTypes: [] })).status).toBe(400);
