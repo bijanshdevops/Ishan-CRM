@@ -223,8 +223,8 @@ test.describe.serial('Ishan CRM end-to-end', () => {
       .first()
       .click();
     await expect(page.getByText(fa.activities.remindersEmpty)).toBeVisible();
-    // the same bell carries the notification inbox (empty until a workflow notifies someone)
-    await expect(page.getByText(fa.notifications.empty)).toBeVisible();
+    // the same bell carries the notification inbox (holds the earlier workflow's notification)
+    await expect(page.getByRole('region', { name: fa.notifications.title })).toBeVisible();
     await a11y(page, '/calendar (notifications bell)');
   });
 
