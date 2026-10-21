@@ -90,6 +90,7 @@ describe.skipIf(!run)('sales (database)', () => {
 
   afterAll(async () => {
     if (prisma) {
+      await prisma.domainEvent.deleteMany({ where: { actorId: { in: userIds } } });
       await prisma.deal.deleteMany({ where: { createdById: { in: userIds } } });
       await prisma.lead.deleteMany({ where: { createdById: { in: userIds } } });
       await prisma.contact.deleteMany({ where: { customer: { createdById: { in: userIds } } } });
@@ -139,6 +140,11 @@ describe.skipIf(!run)('sales (database)', () => {
     leadId = res.body.id;
     expect(res.body.status).toBe('NEW');
     expect(res.body.phone).toBe('09127777777');
+    const created = await prisma.domainEvent.findMany({
+      where: { type: 'lead.created', entityId: res.body.id },
+    });
+    expect(created).toHaveLength(1);
+    expect(created[0].payload.name).toBe('مریم صالحی');
     const found = await call('GET', `/leads?q=${encodeURIComponent('صالحي')}`, 'sales-viewer');
     expect(found.body.items.map((l: any) => l.id)).toContain(leadId);
     const upd = await call('PATCH', `/leads/${leadId}`, 'sales-rep', { status: 'QUALIFIED' });
@@ -166,6 +172,11 @@ describe.skipIf(!run)('sales (database)', () => {
     const lead = await call('GET', `/leads/${leadId}`, 'sales-rep');
     expect(lead.body.status).toBe('CONVERTED');
     expect(lead.body.convertedDealId).toBe(dealId);
+    const convertedEvents = await prisma.domainEvent.findMany({
+      where: { type: 'lead.converted', entityId: leadId },
+    });
+    expect(convertedEvents).toHaveLength(1);
+    expect(convertedEvents[0].payload).toMatchObject({ customerId, dealId, amount: '5000000000' });
     const deal = await call('GET', `/deals/${dealId}`, 'sales-rep');
     expect(deal.body.amount).toBe('5000000000');
     expect(deal.body.stage.id).toBe(stages[0].id);
@@ -244,6 +255,10 @@ describe.skipIf(!run)('sales (database)', () => {
 
     const events = await prisma.dealStageEvent.count({ where: { dealId } });
     expect(events).toBe(5);
+    // each of the four moves wrote exactly one outbox event, in the same transaction
+    expect(
+      await prisma.domainEvent.count({ where: { type: 'deal.stage_changed', entityId: dealId } }),
+    ).toBe(4); // the 5th stage row is the initial placement made by the conversion
 
     await call('POST', `/deals/${dealId}/move`, 'sales-rep', { stageId: won.id });
     const after = await call('GET', '/deals/funnel', 'sales-viewer');

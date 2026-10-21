@@ -115,6 +115,7 @@ describe.skipIf(!run)('products, quotes and contracts (database)', () => {
   afterAll(async () => {
     if (prisma) {
       const ids = Object.values(userIds);
+      await prisma.domainEvent.deleteMany({ where: { actorId: { in: ids } } });
       await prisma.contract.deleteMany({ where: { createdById: { in: ids } } });
       await prisma.quote.deleteMany({ where: { createdById: { in: ids } } });
       await prisma.product.deleteMany({ where: { createdById: { in: ids } } });
@@ -360,6 +361,11 @@ describe.skipIf(!run)('products, quotes and contracts (database)', () => {
     expect(
       (await call('POST', `/quotes/${q.id}/status`, 'q-sales', { status: 'ACCEPTED' })).body.status,
     ).toBe('ACCEPTED');
+    const accepted = await prisma.domainEvent.findMany({
+      where: { type: 'quote.accepted', entityId: q.id },
+    });
+    expect(accepted).toHaveLength(1);
+    expect(accepted[0].payload).toMatchObject({ customerId: q.customerId });
     expect((await call('POST', `/quotes/${q.id}/revise`, 'q-sales')).status).toBe(409); // accepted is final
     const c = await call('POST', '/contracts', 'q-manager', {
       quoteId: q.id,

@@ -11,6 +11,7 @@ import type {
 import { normalizeText, parseRial } from '@ishan/contracts';
 import type { AuthUser } from '../../common/decorators';
 import { PrismaService } from '../../infra/prisma.service';
+import { DomainEventsService } from '../events/domain-events.service';
 import { AuditService } from '../audit/audit.service';
 import { contactSearchText, customerSearchText } from '../customers/mappers';
 import { leadInclude, leadSearchText, toLeadDto } from './mappers';
@@ -20,6 +21,7 @@ export class LeadsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly events: DomainEventsService,
   ) {}
 
   async list(actor: AuthUser, q: LeadListQuery): Promise<Page<LeadDto>> {
@@ -106,6 +108,20 @@ export class LeadsService {
         searchText: leadSearchText({ ...dto, sourceName }),
       },
     });
+    const eventId = await this.events.emit(this.prisma, {
+      organizationId: actor.organizationId,
+      type: 'lead.created',
+      entityType: 'lead',
+      entityId: lead.id,
+      actorId: actor.id,
+      payload: {
+        name: lead.name,
+        sourceId: lead.sourceId,
+        campaignId: lead.campaignId,
+        ownerId: lead.ownerId,
+      },
+    });
+    await this.events.publish([eventId]);
     await this.audit.record({
       organizationId: actor.organizationId,
       actorId: actor.id,
@@ -302,17 +318,32 @@ export class LeadsService {
           convertedDealId: dealId,
         },
       });
-      return { customerId, dealId };
+      const eventId = await this.events.emit(tx, {
+        organizationId: actor.organizationId,
+        type: 'lead.converted',
+        entityType: 'lead',
+        entityId: id,
+        actorId: actor.id,
+        payload: {
+          name: lead.name,
+          customerId,
+          dealId,
+          amount: dealId && dto.deal ? parseRial(dto.deal.amount).toString() : null,
+          ownerId: lead.ownerId,
+        },
+      });
+      return { customerId, dealId, eventId };
     });
+    await this.events.publish([result.eventId]);
     await this.audit.record({
       organizationId: actor.organizationId,
       actorId: actor.id,
       action: 'lead.converted',
       entityType: 'lead',
       entityId: id,
-      metadata: result,
+      metadata: { customerId: result.customerId, dealId: result.dealId },
       ip,
     });
-    return result;
+    return { customerId: result.customerId, dealId: result.dealId };
   }
 }

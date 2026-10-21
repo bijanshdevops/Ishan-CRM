@@ -31,7 +31,13 @@ describe('maintenance jobs (no services)', () => {
 
   it('routes known jobs and rejects unknown ones', async () => {
     const prisma = { session: { deleteMany: async () => ({ count: 2 }) } } as any;
-    const run = createMaintenanceProcessor({ prisma, retentionDays: 30, now: () => NOW });
+    const run = createMaintenanceProcessor({
+      prisma,
+      retentionDays: 30,
+      eventRetentionDays: 30,
+      publishEvents: async () => undefined,
+      now: () => NOW,
+    });
     expect(await run({ name: MAINTENANCE_JOBS.purgeExpiredSessions } as any)).toEqual({
       deleted: 2,
     });

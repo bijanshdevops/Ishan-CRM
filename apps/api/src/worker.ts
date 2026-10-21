@@ -44,12 +44,12 @@ async function main(): Promise<void> {
     info: (o: object, m: string) => log.log(o, m),
     error: (o: object, m: string) => log.error(o, m),
   };
-  const { worker, stop } = await startWorker(queues, prisma, config, pino);
+  const { isRunning, stop } = await startWorker(queues, prisma, config, pino);
 
   // Container health only: no public surface. 200 while the worker runs and Redis answers.
   const health = createServer((req, res) => {
     void (async () => {
-      const ok = req.url === '/health/live' && worker.isRunning() && (await queues.ping());
+      const ok = req.url === '/health/live' && isRunning() && (await queues.ping());
       res.statusCode = ok ? 200 : 503;
       res.setHeader('content-type', 'application/json');
       res.end(JSON.stringify({ status: ok ? 'ok' : 'error' }));
