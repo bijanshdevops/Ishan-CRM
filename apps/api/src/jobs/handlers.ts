@@ -1,5 +1,6 @@
 import type { PrismaService } from '../infra/prisma.service';
 import type { EventHandler } from './events';
+import { createWebhookHandler, type EnqueueDeps } from './webhooks';
 import { createWorkflowHandler } from './workflow-engine';
 
 /**
@@ -9,6 +10,10 @@ import { createWorkflowHandler } from './workflow-engine';
 export function createEventHandlers(
   prisma: PrismaService,
   log?: { info: (o: object, m: string) => void; error: (o: object, m: string) => void },
+  enqueueDeliveries?: EnqueueDeps['enqueue'],
 ): EventHandler[] {
-  return [createWorkflowHandler({ prisma, log })];
+  return [
+    createWorkflowHandler({ prisma, log }),
+    createWebhookHandler({ prisma, log, enqueue: enqueueDeliveries }),
+  ];
 }

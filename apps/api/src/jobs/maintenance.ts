@@ -1,6 +1,7 @@
 import type { Job } from 'bullmq';
 import type { PrismaService } from '../infra/prisma.service';
 import { MAINTENANCE_JOBS } from '../infra/queue/queues';
+import { findDueDeliveries, purgeWebhookDeliveries } from './webhooks';
 import { findUndispatchedEventIds, purgeDispatchedEvents, scanTimeEvents } from './events';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -55,14 +56,23 @@ export async function purgeWorkflowRuns(
 export interface MaintenanceDeps {
   prisma: Pick<
     PrismaService,
-    'session' | 'activity' | 'contract' | 'domainEvent' | 'notification' | 'workflowRun'
+    | 'session'
+    | 'activity'
+    | 'contract'
+    | 'domainEvent'
+    | 'notification'
+    | 'workflowRun'
+    | 'webhookDelivery'
   >;
   retentionDays: number;
   eventRetentionDays: number;
   notificationRetentionDays: number;
   workflowRunRetentionDays: number;
+  webhookDeliveryRetentionDays: number;
   /** Hands event ids to the `events` queue (see DomainEventsService.publish). */
   publishEvents: (ids: string[]) => Promise<void>;
+  /** Hands due webhook deliveries to the `webhooks` queue. */
+  publishDeliveries: (items: Array<{ id: string; attempt: number }>) => Promise<void>;
   now?: () => Date;
   log?: { info: (obj: object, msg: string) => void };
 }
@@ -104,6 +114,21 @@ export function createMaintenanceProcessor(deps: MaintenanceDeps) {
       }
       case MAINTENANCE_JOBS.purgeWorkflowRuns: {
         const deleted = await purgeWorkflowRuns(deps.prisma, now(), deps.workflowRunRetentionDays);
+        deps.log?.info({ job: job.name, deleted }, 'maintenance job finished');
+        return { deleted };
+      }
+      case MAINTENANCE_JOBS.sweepWebhookDeliveries: {
+        const due = await findDueDeliveries(deps.prisma, now());
+        await deps.publishDeliveries(due);
+        if (due.length) deps.log?.info({ job: job.name, queued: due.length }, 'swept webhooks');
+        return { deleted: 0, queued: due.length };
+      }
+      case MAINTENANCE_JOBS.purgeWebhookDeliveries: {
+        const deleted = await purgeWebhookDeliveries(
+          deps.prisma,
+          now(),
+          deps.webhookDeliveryRetentionDays,
+        );
         deps.log?.info({ job: job.name, deleted }, 'maintenance job finished');
         return { deleted };
       }

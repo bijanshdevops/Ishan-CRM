@@ -695,6 +695,9 @@ export const PERMISSION_LABELS: Record<string, string> = {
   'workflows.read': 'مشاهده گردش‌کارها',
   'workflows.write': 'مدیریت گردش‌کارها',
   'workflows.delete': 'حذف گردش‌کار',
+  'webhooks.read': 'مشاهده وب‌هوک‌ها',
+  'webhooks.write': 'مدیریت وب‌هوک‌ها',
+  'webhooks.delete': 'حذف وب‌هوک',
 };
 
 export type Messages = typeof fa;

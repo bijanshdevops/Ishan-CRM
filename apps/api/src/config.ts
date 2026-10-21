@@ -15,6 +15,13 @@ const EnvSchema = z.object({
   EVENT_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(30),
   NOTIFICATION_RETENTION_DAYS: z.coerce.number().int().min(1).max(730).default(90),
   WORKFLOW_RUN_RETENTION_DAYS: z.coerce.number().int().min(1).max(730).default(90),
+  /** Webhook deliveries (finished ones) are kept this long (ADR 0012). */
+  WEBHOOK_DELIVERY_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(30),
+  /** Dev/test only: allow http://localhost webhook targets. Ignored in production. */
+  WEBHOOK_ALLOW_INSECURE: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => v === 'true'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   CORS_ORIGINS: z
     .string()
