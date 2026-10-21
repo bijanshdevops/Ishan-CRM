@@ -39,9 +39,11 @@ describe('maintenance jobs (no services)', () => {
       workflowRunRetentionDays: 90,
       webhookDeliveryRetentionDays: 30,
       emailDeliveryRetentionDays: 30,
+      campaignRecipientRetentionDays: 180,
       publishEvents: async () => undefined,
       publishDeliveries: async () => undefined,
       publishEmails: async () => undefined,
+      publishCampaignEmails: async () => undefined,
       now: () => NOW,
     });
     expect(await run({ name: MAINTENANCE_JOBS.purgeExpiredSessions } as any)).toEqual({

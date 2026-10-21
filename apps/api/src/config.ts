@@ -40,6 +40,10 @@ const EnvSchema = z.object({
   EMAIL_FROM: z.string().min(3).optional(),
   /** Public base URL of the web app; used for the link in e-mails. */
   APP_BASE_URL: z.string().url().optional(),
+  /** Marketing sender (ADR 0015); defaults to EMAIL_FROM. */
+  CAMPAIGN_EMAIL_FROM: z.string().min(3).optional(),
+  CAMPAIGN_EMAIL_PER_MINUTE: z.coerce.number().int().min(1).max(1000).default(60),
+  CAMPAIGN_RECIPIENT_RETENTION_DAYS: z.coerce.number().int().min(1).max(730).default(180),
   EMAIL_DELIVERY_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(30),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   CORS_ORIGINS: z

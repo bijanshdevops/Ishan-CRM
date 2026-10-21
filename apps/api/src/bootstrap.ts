@@ -28,6 +28,7 @@ export async function createApp(): Promise<NestFastifyApplication> {
       },
     },
   });
+  // Nest already parses form bodies, which RFC 8058 one-click unsubscribe posts (the body is ignored).
   app.enableCors({ origin: config.CORS_ORIGINS, credentials: true });
 
   if (config.NODE_ENV !== 'production') setupOpenApi(app);
