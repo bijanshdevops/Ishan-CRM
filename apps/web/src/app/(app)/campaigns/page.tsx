@@ -13,6 +13,8 @@ import {
   type Page,
 } from '@ishan/contracts';
 import { fa, formatJalaliDate, formatMoney, formatNumber } from '@ishan/i18n';
+import { CampaignSendingDialog } from '@/components/campaign-sending-dialog';
+import { SuppressionDialog } from '@/components/suppression-dialog';
 import { JalaliDateField } from '@/components/jalali-date-field';
 import { useToast } from '@/components/toast';
 import {
@@ -56,6 +58,8 @@ export default function CampaignsPage() {
   const [status, setStatus] = useState('');
   const [applied, setApplied] = useState({ q: '', status: '' });
   const [editing, setEditing] = useState<CampaignDto | 'new' | null>(null);
+  const [sendingFor, setSendingFor] = useState<CampaignDto | null>(null);
+  const [showSuppressions, setShowSuppressions] = useState(false);
   const canWrite = can(PERMISSIONS.CAMPAIGNS_WRITE);
   const canReport = can(PERMISSIONS.REPORTS_READ);
 
@@ -87,9 +91,14 @@ export default function CampaignsPage() {
       <PageHeader
         title={fa.campaigns.title}
         actions={
-          canWrite ? (
-            <Button onClick={() => setEditing('new')}>{fa.campaigns.add}</Button>
-          ) : undefined
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => setShowSuppressions(true)}>
+              {fa.campaignSending.suppressions}
+            </Button>
+            {canWrite ? (
+              <Button onClick={() => setEditing('new')}>{fa.campaigns.add}</Button>
+            ) : null}
+          </div>
         }
       />
       <form
@@ -161,6 +170,9 @@ export default function CampaignsPage() {
                       <Button variant="secondary" onClick={() => setEditing(c)}>
                         {fa.common.edit}
                       </Button>
+                      <Button variant="secondary" onClick={() => setSendingFor(c)}>
+                        {fa.campaignSending.open}
+                      </Button>
                       {can(PERMISSIONS.CAMPAIGNS_DELETE) ? (
                         <Button
                           variant="ghost"
@@ -194,6 +206,14 @@ export default function CampaignsPage() {
       {canReport ? <RoiCard /> : null}
       <SourcesCard canWrite={canWrite} canReport={canReport} />
 
+      {sendingFor ? (
+        <CampaignSendingDialog
+          campaignId={sendingFor.id}
+          campaignName={sendingFor.name}
+          onClose={() => setSendingFor(null)}
+        />
+      ) : null}
+      {showSuppressions ? <SuppressionDialog onClose={() => setShowSuppressions(false)} /> : null}
       {editing ? (
         <CampaignDialog
           campaign={editing === 'new' ? null : editing}

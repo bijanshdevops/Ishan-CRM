@@ -418,6 +418,42 @@ test.describe.serial('Ishan CRM end-to-end', () => {
     await a11y(page, '/campaigns (with data)');
   });
 
+  test('campaign e-mail: unavailable without SMTP, suppression list, unsubscribe page', async ({
+    page,
+  }) => {
+    await loginAdmin(page);
+    await page.goto('/campaigns');
+
+    // the compose dialog says plainly that this server cannot send
+    await page.getByRole('button', { name: fa.campaignSending.open }).first().click();
+    await expect(page.getByText(fa.campaignSending.unavailable)).toBeVisible();
+    await page.getByRole('button', { name: fa.common.close }).click();
+
+    // suppression list: add, see, remove
+    const address = `unsub-${run}@example.test`;
+    await page.getByRole('button', { name: fa.campaignSending.suppressions }).click();
+    const dlg = page.getByRole('dialog');
+    await dlg.getByLabel(fa.campaignSending.suppressionEmail).fill(address);
+    await dlg.getByRole('button', { name: fa.campaignSending.suppressionAdd }).click();
+    await expect(page.getByText(fa.campaignSending.suppressionAdded)).toBeVisible();
+    const row = dlg.getByRole('row', { name: new RegExp(address) });
+    await expect(row).toContainText(fa.campaignSending.reasons.MANUAL);
+    page.once('dialog', (d) => void d.accept());
+    await row.getByRole('button', { name: fa.common.delete }).click();
+    await expect(page.getByText(fa.campaignSending.suppressionRemoved)).toBeVisible();
+    await expect(row).toHaveCount(0);
+
+    // public unsubscribe page: no token, and a bad token is refused
+    await page.goto('/unsubscribe');
+    await expect(page.getByText(fa.unsubscribe.missing)).toBeVisible();
+    await a11y(page, '/unsubscribe (no token)');
+    await page.goto(`/unsubscribe?token=${'x'.repeat(43)}`);
+    await expect(page.getByText(fa.unsubscribe.intro)).toBeVisible();
+    await expect(page).toHaveURL(/\/unsubscribe$/);
+    await page.getByRole('button', { name: fa.unsubscribe.confirm }).click();
+    await expect(page.getByText(fa.unsubscribe.invalid)).toBeVisible();
+  });
+
   test('dashboard: KPIs, org scope, table alternative, CSV export', async ({ page }) => {
     await loginAdmin(page);
     await page.goto('/');
