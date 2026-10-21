@@ -1,6 +1,7 @@
 import type { Job } from 'bullmq';
 import type { PrismaService } from '../infra/prisma.service';
 import { MAINTENANCE_JOBS } from '../infra/queue/queues';
+import { findDueEmails, purgeEmailDeliveries } from './emails';
 import { findDueDeliveries, purgeWebhookDeliveries } from './webhooks';
 import { findUndispatchedEventIds, purgeDispatchedEvents, scanTimeEvents } from './events';
 
@@ -63,16 +64,20 @@ export interface MaintenanceDeps {
     | 'notification'
     | 'workflowRun'
     | 'webhookDelivery'
+    | 'emailDelivery'
   >;
   retentionDays: number;
   eventRetentionDays: number;
   notificationRetentionDays: number;
   workflowRunRetentionDays: number;
   webhookDeliveryRetentionDays: number;
+  emailDeliveryRetentionDays: number;
   /** Hands event ids to the `events` queue (see DomainEventsService.publish). */
   publishEvents: (ids: string[]) => Promise<void>;
   /** Hands due webhook deliveries to the `webhooks` queue. */
   publishDeliveries: (items: Array<{ id: string; attempt: number }>) => Promise<void>;
+  /** Hands due e-mail deliveries to the `emails` queue. */
+  publishEmails: (items: Array<{ id: string; attempt: number }>) => Promise<void>;
   now?: () => Date;
   log?: { info: (obj: object, msg: string) => void };
 }
@@ -128,6 +133,21 @@ export function createMaintenanceProcessor(deps: MaintenanceDeps) {
           deps.prisma,
           now(),
           deps.webhookDeliveryRetentionDays,
+        );
+        deps.log?.info({ job: job.name, deleted }, 'maintenance job finished');
+        return { deleted };
+      }
+      case MAINTENANCE_JOBS.sweepEmailDeliveries: {
+        const due = await findDueEmails(deps.prisma, now());
+        await deps.publishEmails(due);
+        if (due.length) deps.log?.info({ job: job.name, queued: due.length }, 'swept emails');
+        return { deleted: 0, queued: due.length };
+      }
+      case MAINTENANCE_JOBS.purgeEmailDeliveries: {
+        const deleted = await purgeEmailDeliveries(
+          deps.prisma,
+          now(),
+          deps.emailDeliveryRetentionDays,
         );
         deps.log?.info({ job: job.name, deleted }, 'maintenance job finished');
         return { deleted };

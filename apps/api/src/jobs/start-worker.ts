@@ -7,6 +7,12 @@ import { publishEventIds } from '../modules/events/domain-events.service';
 import { createEventsProcessor, type EventHandler } from './events';
 import { createEventHandlers } from './handlers';
 import { createMaintenanceProcessor } from './maintenance';
+import {
+  createEmailProcessor,
+  createSmtpTransport,
+  emailChannelEnabled,
+  publishEmails,
+} from './emails';
 import { createWebhookProcessor, publishDeliveries } from './webhooks';
 import { CryptoService } from '../modules/auth/crypto.service';
 
@@ -16,8 +22,11 @@ export async function startWorker(
   prisma: PrismaService,
   config: AppConfig,
   log: { info: (o: object, m: string) => void; error: (o: object, m: string) => void },
-  handlers: EventHandler[] = createEventHandlers(prisma, log, (items) =>
-    publishDeliveries(queues, items),
+  handlers: EventHandler[] = createEventHandlers(
+    prisma,
+    log,
+    (items) => publishDeliveries(queues, items),
+    emailChannelEnabled(config),
   ),
 ) {
   const maintenance = new Worker(
@@ -28,9 +37,11 @@ export async function startWorker(
       eventRetentionDays: config.EVENT_RETENTION_DAYS,
       notificationRetentionDays: config.NOTIFICATION_RETENTION_DAYS,
       workflowRunRetentionDays: config.WORKFLOW_RUN_RETENTION_DAYS,
-      webhookDeliveryRetentionDays: config.WEBHOOK_DELIVERY_RETENTION_DAYS,
       publishEvents: (ids) => publishEventIds(queues, ids),
+      webhookDeliveryRetentionDays: config.WEBHOOK_DELIVERY_RETENTION_DAYS,
+      emailDeliveryRetentionDays: config.EMAIL_DELIVERY_RETENTION_DAYS,
       publishDeliveries: (items) => publishDeliveries(queues, items),
+      publishEmails: (items) => publishEmails(queues, items),
       log,
     }),
     { connection: queues.newConnection(), concurrency: 1 },
@@ -45,11 +56,21 @@ export async function startWorker(
       prisma,
       crypto: new CryptoService(config),
       guard: { allowLocal: config.WEBHOOK_ALLOW_INSECURE && config.NODE_ENV !== 'production' },
+      emailChannel: emailChannelEnabled(config),
       log,
     }),
     { connection: queues.newConnection(), concurrency: 10 },
   );
-  const workers = [maintenance, events, webhooks];
+  const emails = emailChannelEnabled(config)
+    ? new Worker(
+        QUEUES.emails,
+        createEmailProcessor({ prisma, transport: createSmtpTransport(config), config, log }),
+        { connection: queues.newConnection(), concurrency: 3 },
+      )
+    : null;
+  const workers = emails
+    ? [maintenance, events, webhooks, emails]
+    : [maintenance, events, webhooks];
   for (const w of workers) {
     w.on('failed', (job, err) =>
       log.error({ queue: w.name, job: job?.name, err: err.message }, 'job failed'),

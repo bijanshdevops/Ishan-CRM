@@ -11,9 +11,10 @@ export function createEventHandlers(
   prisma: PrismaService,
   log?: { info: (o: object, m: string) => void; error: (o: object, m: string) => void },
   enqueueDeliveries?: EnqueueDeps['enqueue'],
+  emailChannel = false,
 ): EventHandler[] {
   return [
-    createWorkflowHandler({ prisma, log }),
+    createWorkflowHandler({ prisma, log, emailChannel }),
     createWebhookHandler({ prisma, log, enqueue: enqueueDeliveries }),
   ];
 }

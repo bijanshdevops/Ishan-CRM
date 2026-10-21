@@ -3,6 +3,7 @@ export const QUEUES = {
   maintenance: 'maintenance',
   events: 'events',
   webhooks: 'webhooks',
+  emails: 'emails',
 } as const;
 
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];
@@ -16,6 +17,8 @@ export const MAINTENANCE_JOBS = {
   purgeWorkflowRuns: 'purge-workflow-runs',
   sweepWebhookDeliveries: 'sweep-webhook-deliveries',
   purgeWebhookDeliveries: 'purge-webhook-deliveries',
+  sweepEmailDeliveries: 'sweep-email-deliveries',
+  purgeEmailDeliveries: 'purge-email-deliveries',
 } as const;
 
 export const EVENT_JOBS = {
@@ -24,6 +27,10 @@ export const EVENT_JOBS = {
 
 export const WEBHOOK_JOBS = {
   deliver: 'deliver-webhook',
+} as const;
+
+export const EMAIL_JOBS = {
+  send: 'send-email',
 } as const;
 
 export type MaintenanceJobName = (typeof MAINTENANCE_JOBS)[keyof typeof MAINTENANCE_JOBS];
@@ -76,5 +83,15 @@ export const MAINTENANCE_SCHEDULES: ReadonlyArray<{
     id: 'daily-purge-webhook-deliveries',
     job: MAINTENANCE_JOBS.purgeWebhookDeliveries,
     pattern: '40 0 * * *',
+  },
+  {
+    id: 'minutely-sweep-email-deliveries',
+    job: MAINTENANCE_JOBS.sweepEmailDeliveries,
+    pattern: '* * * * *',
+  },
+  {
+    id: 'daily-purge-email-deliveries',
+    job: MAINTENANCE_JOBS.purgeEmailDeliveries,
+    pattern: '50 0 * * *',
   },
 ];
