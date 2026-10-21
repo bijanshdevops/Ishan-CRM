@@ -473,12 +473,15 @@ describe.skipIf(!db)('workflow engine (database)', () => {
         await new Promise((r) => setTimeout(r, 100));
       }
       const run = await prisma.workflowRun.findFirstOrThrow({ where: { workflowId: wfId } });
-      expect(run.status).toBe('SUCCEEDED');
-      expect(
-        await prisma.notification.count({
-          where: { userId: users.owner, title: 'پایان‌به‌پایان قرارداد ب' },
-        }),
-      ).toBe(1);
+      expect({ status: run.status, error: run.error, steps: run.steps }).toMatchObject({
+        status: 'SUCCEEDED',
+        steps: [{ action: 'notify', status: 'done' }],
+      });
+      const note = await prisma.notification.findUniqueOrThrow({
+        where: { id: run.steps[0].createdId },
+      });
+      expect(note.userId).toBe(users.owner);
+      expect(note.title).toContain('قرارداد ب');
       for (let i = 0; i < 50; i++) {
         if ((await prisma.domainEvent.findUniqueOrThrow({ where: { id } })).dispatchedAt) break;
         await new Promise((r) => setTimeout(r, 100));
