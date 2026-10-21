@@ -43,6 +43,7 @@ describe('maintenance jobs (no services)', () => {
       publishEvents: async () => undefined,
       publishDeliveries: async () => undefined,
       publishEmails: async () => undefined,
+      publishQuoteEmails: async () => undefined,
       publishCampaignEmails: async () => undefined,
       now: () => NOW,
     });

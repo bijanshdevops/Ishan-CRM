@@ -38,6 +38,7 @@ jobs:
       DATABASE_URL: postgresql://ishan:ishan@localhost:5432/ishan?schema=public
       REDIS_URL: redis://localhost:6379
       RUN_DB_TESTS: '1'
+      PDF_CHROMIUM_PATH: /usr/bin/google-chrome
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

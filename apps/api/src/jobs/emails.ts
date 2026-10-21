@@ -27,6 +27,8 @@ export interface MailMessage {
   subject: string;
   text: string;
   html: string;
+  replyTo?: string;
+  attachments?: Array<{ filename: string; content: Buffer; contentType: string }>;
   headers?: Record<string, string>;
 }
 export interface MailTransport {

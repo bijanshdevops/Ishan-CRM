@@ -6,6 +6,7 @@ import {
   finishStalledSendings,
   purgeCampaignRecipients,
 } from './campaign-emails';
+import { findDueQuoteEmails } from './quote-emails';
 import { findDueEmails, purgeEmailDeliveries, purgeEmailVerificationTokens } from './emails';
 import { findDueDeliveries, purgeWebhookDeliveries } from './webhooks';
 import { findUndispatchedEventIds, purgeDispatchedEvents, scanTimeEvents } from './events';
@@ -70,6 +71,7 @@ export interface MaintenanceDeps {
     | 'workflowRun'
     | 'webhookDelivery'
     | 'emailDelivery'
+    | 'quoteEmail'
     | 'emailVerificationToken'
     | 'campaignRecipient'
     | 'campaignSending'
@@ -89,6 +91,8 @@ export interface MaintenanceDeps {
   publishDeliveries: (items: Array<{ id: string; attempt: number }>) => Promise<void>;
   /** Hands due e-mail deliveries to the `emails` queue. */
   publishEmails: (items: Array<{ id: string; attempt: number }>) => Promise<void>;
+  /** Hands due quote e-mails to the `emails` queue. */
+  publishQuoteEmails: (items: Array<{ id: string; attempt: number }>) => Promise<void>;
   /** Hands due campaign recipients to the `campaign-emails` queue. */
   publishCampaignEmails: (items: Array<{ id: string; attempt: number }>) => Promise<void>;
   now?: () => Date;
@@ -153,8 +157,11 @@ export function createMaintenanceProcessor(deps: MaintenanceDeps) {
       case MAINTENANCE_JOBS.sweepEmailDeliveries: {
         const due = await findDueEmails(deps.prisma, now());
         await deps.publishEmails(due);
-        if (due.length) deps.log?.info({ job: job.name, queued: due.length }, 'swept emails');
-        return { deleted: 0, queued: due.length };
+        const dueQuotes = await findDueQuoteEmails(deps.prisma, now());
+        await deps.publishQuoteEmails(dueQuotes);
+        const queued = due.length + dueQuotes.length;
+        if (queued) deps.log?.info({ job: job.name, queued }, 'swept emails');
+        return { deleted: 0, queued };
       }
       case MAINTENANCE_JOBS.purgeEmailDeliveries: {
         const deleted = await purgeEmailDeliveries(

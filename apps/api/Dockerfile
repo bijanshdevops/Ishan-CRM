@@ -8,19 +8,24 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc ./
 COPY apps/api/package.json apps/api/
 COPY packages/config/package.json packages/config/
 COPY packages/contracts/package.json packages/contracts/
+COPY packages/i18n/package.json packages/i18n/
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile --filter @ishan/api...
 COPY packages/config packages/config
 COPY packages/contracts packages/contracts
+COPY packages/i18n packages/i18n
 COPY apps/api apps/api
-RUN pnpm --filter @ishan/contracts build && pnpm --filter @ishan/api build
+RUN pnpm --filter @ishan/contracts build && pnpm --filter @ishan/i18n build && pnpm --filter @ishan/api build
 
 FROM build AS migrate
 WORKDIR /repo/apps/api
 CMD ["pnpm", "exec", "prisma", "migrate", "deploy"]
 
 FROM base AS runner
-ENV NODE_ENV=production
+# Headless Chromium renders quote PDFs (ADR 0016); the font package gives it Arabic-script shaping.
+RUN apk add --no-cache chromium font-noto-arabic
+ENV NODE_ENV=production \
+    PDF_CHROMIUM_PATH=/usr/bin/chromium
 COPY --from=build /repo /repo
 USER node
 WORKDIR /repo/apps/api

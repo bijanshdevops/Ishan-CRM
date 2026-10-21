@@ -35,6 +35,7 @@ export const WEBHOOK_JOBS = {
 
 export const EMAIL_JOBS = {
   send: 'send-email',
+  sendQuote: 'send-quote-email',
 } as const;
 
 export const CAMPAIGN_JOBS = {
