@@ -181,6 +181,7 @@ model User {
   createdContracts   Contract[] @relation("ContractCreator")
   ownedCampaigns     Campaign[] @relation("CampaignOwner")
   createdCampaigns   Campaign[] @relation("CampaignCreator")
+  notifications      Notification[]
 
   @@unique([organizationId, email])
   @@index([roleId])
@@ -701,4 +702,26 @@ model DomainEvent {
   @@index([organizationId, occurredAt(sort: Desc)])
   @@index([dispatchedAt, occurredAt])
   @@map("domain_events")
+}
+
+model Notification {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  /// The recipient; everyone sees and changes only their own notifications.
+  userId        String    @map("user_id") @db.Uuid
+  type          String
+  title         String
+  body          String?
+  entityType    String?   @map("entity_type")
+  entityId      String?   @map("entity_id") @db.Uuid
+  /// Origin; deliberately not a foreign key (runs are purged, notifications stay).
+  workflowRunId String?   @map("workflow_run_id") @db.Uuid
+  readAt        DateTime? @map("read_at") @db.Timestamptz(6)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, id(sort: Desc)])
+  @@index([userId, readAt])
+  @@index([readAt])
+  @@map("notifications")
 }

@@ -13,6 +13,7 @@ const EnvSchema = z.object({
   SESSION_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(30),
   /** Dispatched domain events are kept this long (ADR 0011). */
   EVENT_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(30),
+  NOTIFICATION_RETENTION_DAYS: z.coerce.number().int().min(1).max(730).default(90),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   CORS_ORIGINS: z
     .string()

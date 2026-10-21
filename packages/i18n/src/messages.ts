@@ -1,5 +1,15 @@
 export const fa = {
   app: { name: 'ایشان', tagline: 'مدیریت ارتباط با مشتریان' },
+  notifications: {
+    bell: 'اعلان‌ها و یادآوری‌ها',
+    title: 'اعلان‌ها',
+    empty: 'اعلان جدیدی ندارید',
+    markAllRead: 'همه را خوانده‌شده کن',
+    markRead: 'خوانده شد',
+    open: 'باز کردن',
+    unread: 'خوانده‌نشده',
+    newOne: 'اعلان جدید',
+  },
   common: {
     loading: 'در حال بارگذاری…',
     save: 'ذخیره',

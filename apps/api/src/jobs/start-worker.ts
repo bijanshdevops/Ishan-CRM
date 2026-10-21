@@ -22,6 +22,7 @@ export async function startWorker(
       prisma,
       retentionDays: config.SESSION_RETENTION_DAYS,
       eventRetentionDays: config.EVENT_RETENTION_DAYS,
+      notificationRetentionDays: config.NOTIFICATION_RETENTION_DAYS,
       publishEvents: (ids) => publishEventIds(queues, ids),
       log,
     }),

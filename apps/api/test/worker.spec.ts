@@ -35,6 +35,7 @@ describe('maintenance jobs (no services)', () => {
       prisma,
       retentionDays: 30,
       eventRetentionDays: 30,
+      notificationRetentionDays: 90,
       publishEvents: async () => undefined,
       now: () => NOW,
     });
@@ -144,5 +145,22 @@ describe.skipIf(!run)('worker (database + redis)', () => {
     expect(ids).not.toContain(deadRevoked);
     expect(ids).toContain(recentlyExpired);
     expect(ids).toContain(live);
+  });
+});
+
+describe('notification retention (no services)', () => {
+  it('deletes only notifications read before the cutoff', async () => {
+    const { purgeReadNotifications } = await import('../src/jobs/maintenance');
+    let where: any;
+    const prisma = {
+      notification: {
+        deleteMany: async (args: any) => {
+          where = args.where;
+          return { count: 4 };
+        },
+      },
+    } as any;
+    expect(await purgeReadNotifications(prisma, NOW, 90)).toBe(4);
+    expect(where).toEqual({ readAt: { lt: new Date(NOW.getTime() - 90 * DAY) } });
   });
 });

@@ -11,6 +11,7 @@ export const MAINTENANCE_JOBS = {
   sweepUndispatchedEvents: 'sweep-undispatched-events',
   scanTimeEvents: 'scan-time-events',
   purgeDispatchedEvents: 'purge-dispatched-events',
+  purgeReadNotifications: 'purge-read-notifications',
 } as const;
 
 export const EVENT_JOBS = {
@@ -47,5 +48,10 @@ export const MAINTENANCE_SCHEDULES: ReadonlyArray<{
     id: 'daily-purge-dispatched-events',
     job: MAINTENANCE_JOBS.purgeDispatchedEvents,
     pattern: '10 0 * * *',
+  },
+  {
+    id: 'daily-purge-read-notifications',
+    job: MAINTENANCE_JOBS.purgeReadNotifications,
+    pattern: '20 0 * * *',
   },
 ];

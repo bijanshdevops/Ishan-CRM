@@ -165,6 +165,9 @@ test.describe.serial('Ishan CRM end-to-end', () => {
       .first()
       .click();
     await expect(page.getByText(fa.activities.remindersEmpty)).toBeVisible();
+    // the same bell carries the notification inbox (empty until a workflow notifies someone)
+    await expect(page.getByText(fa.notifications.empty)).toBeVisible();
+    await a11y(page, '/calendar (notifications bell)');
   });
 
   test('quote lifecycle: product, quote, send, accept, contract, print view', async ({ page }) => {
