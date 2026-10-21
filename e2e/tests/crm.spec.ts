@@ -109,6 +109,64 @@ test.describe.serial('Ishan CRM end-to-end', () => {
     await expect(won.getByRole('button', { name: `فرصت آزمون ${run}` })).toBeVisible();
   });
 
+  test('workflow: build it in the UI, move a deal, receive the notification', async ({ page }) => {
+    const t = fa.workflows;
+    await loginAdmin(page);
+    await page.goto('/workflows');
+    await expect(page.getByText(t.empty)).toBeVisible();
+    await a11y(page, '/workflows');
+
+    await page.getByRole('link', { name: t.add }).click();
+    await expect(page.getByRole('heading', { name: t.addTitle })).toBeVisible();
+    await page.getByLabel(t.name, { exact: true }).fill(`پیگیری برنده ${run}`);
+    await page.getByLabel(t.trigger, { exact: true }).selectOption('deal.stage_changed');
+    await page.getByRole('button', { name: t.addCondition }).click();
+    await page.getByLabel(t.field, { exact: true }).selectOption('stageKind');
+    await page.getByLabel(t.value, { exact: true }).selectOption('WON');
+    await page.getByLabel(t.recipient, { exact: true }).selectOption('actor');
+    await page.getByLabel(t.actionTitle, { exact: true }).fill('برنده شد {{title}}');
+    await a11y(page, '/workflows/new');
+
+    // an invalid definition is refused in the form, in Persian, without a request
+    await page.getByLabel(t.actionTitle, { exact: true }).fill('{{ownerId}}');
+    await page.getByRole('button', { name: t.save }).click();
+    await expect(page.getByRole('alert').filter({ hasText: 'ownerId' })).toBeVisible();
+    await page.getByLabel(t.actionTitle, { exact: true }).fill('برنده شد {{title}}');
+    await page.getByRole('button', { name: t.save }).click();
+    await expect(page.getByText(t.created)).toBeVisible();
+    await expect(page.getByRole('heading', { name: `پیگیری برنده ${run}` })).toBeVisible();
+    await expect(page.getByText(t.runsEmpty)).toBeVisible();
+    await a11y(page, '/workflows/[id]');
+
+    await page.getByRole('button', { name: t.enable, exact: true }).click();
+    await expect(page.getByText(t.enabledToast)).toBeVisible();
+
+    // reopen the deal, then win it again: the second move raises the event the workflow listens to
+    await page.goto('/deals');
+    const picker = page.getByLabel(`${fa.deals.moveTo}: فرصت آزمون ${run}`);
+    await picker.selectOption({ index: 1 });
+    await expect(page.getByText(fa.deals.moved)).toBeVisible();
+    await picker.selectOption({ label: 'برنده شد' });
+
+    // the worker processes the event asynchronously; the bell picks it up on load
+    await expect(async () => {
+      await page.reload();
+      await page.getByRole('button', { name: new RegExp(fa.notifications.bell) }).click();
+      await expect(
+        page.getByRole('dialog').getByText(new RegExp(`برنده شد فرصت آزمون ${run}`)),
+      ).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 60_000, intervals: [2_000] });
+    await a11y(page, 'notification bell with a notification');
+    await page.getByRole('button', { name: fa.notifications.markAllRead }).click();
+    await page.keyboard.press('Escape');
+
+    await page.goto('/workflows');
+    await page.getByRole('link', { name: `پیگیری برنده ${run}` }).click();
+    await expect(page.getByRole('table').getByText(t.succeeded, { exact: true })).toBeVisible({
+      timeout: 10_000,
+    });
+  });
+
   test('activities: note, task and call on the customer file, then calendar and reminders', async ({
     page,
   }) => {
@@ -165,8 +223,8 @@ test.describe.serial('Ishan CRM end-to-end', () => {
       .first()
       .click();
     await expect(page.getByText(fa.activities.remindersEmpty)).toBeVisible();
-    // the same bell carries the notification inbox (empty until a workflow notifies someone)
-    await expect(page.getByText(fa.notifications.empty)).toBeVisible();
+    // the same bell carries the notification inbox (holds the earlier workflow's notification)
+    await expect(page.getByRole('region', { name: fa.notifications.title })).toBeVisible();
     await a11y(page, '/calendar (notifications bell)');
   });
 

@@ -20,6 +20,7 @@ const NAV = [
   { href: '/contracts', label: fa.nav.contracts, permission: PERMISSIONS.CONTRACTS_READ },
   { href: '/activities', label: fa.nav.activities, permission: PERMISSIONS.ACTIVITIES_READ },
   { href: '/calendar', label: fa.nav.calendar, permission: PERMISSIONS.ACTIVITIES_READ },
+  { href: '/workflows', label: fa.nav.workflows, permission: PERMISSIONS.WORKFLOWS_READ },
   { href: '/users', label: fa.nav.users, permission: PERMISSIONS.USERS_READ },
   { href: '/teams', label: fa.nav.teams, permission: PERMISSIONS.TEAMS_READ },
   { href: '/roles', label: fa.nav.roles, permission: PERMISSIONS.ROLES_READ },
