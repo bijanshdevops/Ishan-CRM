@@ -130,7 +130,7 @@ test.describe.serial('Ishan CRM end-to-end', () => {
     // an invalid definition is refused in the form, in Persian, without a request
     await page.getByLabel(t.actionTitle, { exact: true }).fill('{{ownerId}}');
     await page.getByRole('button', { name: t.save }).click();
-    await expect(page.getByRole('alert')).toContainText('ownerId');
+    await expect(page.getByRole('alert').filter({ hasText: 'ownerId' })).toBeVisible();
     await page.getByLabel(t.actionTitle, { exact: true }).fill('برنده شد {{title}}');
     await page.getByRole('button', { name: t.save }).click();
     await expect(page.getByText(t.created)).toBeVisible();
