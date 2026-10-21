@@ -23,6 +23,7 @@ import {
 import type { AuthUser } from '../../common/decorators';
 import type { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../infra/prisma.service';
+import { DomainEventsService } from '../events/domain-events.service';
 import { AuditService } from '../audit/audit.service';
 import { dateOnly, quoteInclude, quoteNumber, tehranToday, toQuoteDto } from './mappers';
 
@@ -47,6 +48,7 @@ export class QuotesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly events: DomainEventsService,
   ) {}
 
   private async latestVersion(organizationId: string, seq: number) {
@@ -358,10 +360,28 @@ export class QuotesService {
       });
     }
     const now = new Date();
-    await this.prisma.quote.update({
-      where: { id },
-      data: to === 'SENT' ? { status: to, sentAt: now } : { status: to, decidedAt: now },
+    const eventId = await this.prisma.$transaction(async (tx) => {
+      await tx.quote.update({
+        where: { id },
+        data: to === 'SENT' ? { status: to, sentAt: now } : { status: to, decidedAt: now },
+      });
+      if (to !== 'ACCEPTED' && to !== 'REJECTED') return null;
+      return this.events.emit(tx, {
+        organizationId: actor.organizationId,
+        type: to === 'ACCEPTED' ? 'quote.accepted' : 'quote.rejected',
+        entityType: 'quote',
+        entityId: id,
+        actorId: actor.id,
+        payload: {
+          number: quoteNumber(q.seq),
+          title: q.title,
+          customerId: q.customerId,
+          total: q.total.toString(),
+          ownerId: q.ownerId,
+        },
+      });
     });
+    if (eventId) await this.events.publish([eventId]);
     await this.audit.record({
       organizationId: actor.organizationId,
       actorId: actor.id,

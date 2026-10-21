@@ -11,6 +11,7 @@ import type {
 import { parseRial } from '@ishan/contracts';
 import type { AuthUser } from '../../common/decorators';
 import { PrismaService } from '../../infra/prisma.service';
+import { DomainEventsService } from '../events/domain-events.service';
 import { AuditService } from '../audit/audit.service';
 import { dealInclude, toDealDto, toStageDto } from './mappers';
 
@@ -19,6 +20,7 @@ export class DealsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly events: DomainEventsService,
   ) {}
 
   async list(actor: AuthUser, q: DealListQuery): Promise<Page<DealDto>> {
@@ -116,6 +118,7 @@ export class DealsService {
         throw new BadRequestException({ code: 'NO_PIPELINE', message: 'قیف فروش تعریف نشده است' });
       stageId = first.id;
     }
+    let eventId = '';
     const deal = await this.prisma.$transaction(async (tx) => {
       const created = await tx.deal.create({
         data: {
@@ -134,8 +137,23 @@ export class DealsService {
       await tx.dealStageEvent.create({
         data: { dealId: created.id, toStageId: stageId!, actorId: actor.id },
       });
+      eventId = await this.events.emit(tx, {
+        organizationId: actor.organizationId,
+        type: 'deal.created',
+        entityType: 'deal',
+        entityId: created.id,
+        actorId: actor.id,
+        payload: {
+          title: created.title,
+          customerId: created.customerId,
+          stageId: created.stageId,
+          amount: created.amount.toString(),
+          ownerId: created.ownerId,
+        },
+      });
       return created;
     });
+    await this.events.publish([eventId]);
     await this.audit.record({
       organizationId: actor.organizationId,
       actorId: actor.id,
@@ -209,19 +227,36 @@ export class DealsService {
     if (deal.stageId === stageId) return this.get(actor, id);
 
     const closing = stage.kind !== 'OPEN';
-    await this.prisma.$transaction([
-      this.prisma.deal.update({
+    const eventId = await this.prisma.$transaction(async (tx) => {
+      await tx.deal.update({
         where: { id },
         data: {
           stageId,
           closedAt: closing ? new Date() : null,
           lostReason: stage.kind === 'LOST' ? (lostReason ?? null) : null,
         },
-      }),
-      this.prisma.dealStageEvent.create({
+      });
+      await tx.dealStageEvent.create({
         data: { dealId: id, fromStageId: deal.stageId, toStageId: stageId, actorId: actor.id },
-      }),
-    ]);
+      });
+      return this.events.emit(tx, {
+        organizationId: actor.organizationId,
+        type: 'deal.stage_changed',
+        entityType: 'deal',
+        entityId: id,
+        actorId: actor.id,
+        payload: {
+          title: deal.title,
+          customerId: deal.customerId,
+          fromStageId: deal.stageId,
+          stageId,
+          stageKind: stage.kind,
+          amount: deal.amount.toString(),
+          ownerId: deal.ownerId,
+        },
+      });
+    });
+    await this.events.publish([eventId]);
     await this.audit.record({
       organizationId: actor.organizationId,
       actorId: actor.id,

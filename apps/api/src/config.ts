@@ -11,6 +11,8 @@ const EnvSchema = z.object({
   WORKER_PORT: z.coerce.number().int().min(1).max(65535).default(4001),
   /** Expired or revoked sessions are kept this long before the maintenance job deletes them. */
   SESSION_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(30),
+  /** Dispatched domain events are kept this long (ADR 0011). */
+  EVENT_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(30),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   CORS_ORIGINS: z
     .string()

@@ -124,6 +124,7 @@ model Organization {
   counters   DocumentCounter[]
   leadSources LeadSource[]
   campaigns   Campaign[]
+  domainEvents DomainEvent[]
 
   @@map("organizations")
 }
@@ -674,4 +675,30 @@ model Contract {
   @@index([customerId])
   @@index([organizationId, status])
   @@map("contracts")
+}
+
+/// Outbox of business events (ADR 0011). Written with the change that caused it; the worker
+/// dispatches it and stamps `dispatched_at`. Payload shape is validated in @ishan/contracts.
+model DomainEvent {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  type           String
+  entityType     String    @map("entity_type")
+  entityId       String    @map("entity_id") @db.Uuid
+  /// Not a foreign key (like audit_logs); null for scheduler-made events.
+  actorId        String?   @map("actor_id") @db.Uuid
+  payload        Json
+  /// Unique while set: a scheduler raises each situation once.
+  dedupeKey      String?   @unique @map("dedupe_key")
+  /// Set when a workflow action caused this event; such events never trigger workflows.
+  causedByRunId  String?   @map("caused_by_run_id") @db.Uuid
+  occurredAt     DateTime  @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  dispatchedAt   DateTime? @map("dispatched_at") @db.Timestamptz(6)
+  attempts       Int       @default(0)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, occurredAt(sort: Desc)])
+  @@index([dispatchedAt, occurredAt])
+  @@map("domain_events")
 }

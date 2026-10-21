@@ -12,6 +12,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { BootstrapModule } from './modules/bootstrap/bootstrap.module';
 import { HealthModule } from './modules/health/health.module';
+import { EventsModule } from './modules/events/events.module';
 import { MarketingModule } from './modules/marketing/marketing.module';
 import { QuotesModule } from './modules/quotes/quotes.module';
 import { ReportsModule } from './modules/reports/reports.module';
@@ -46,6 +47,7 @@ const config = loadConfig();
     ReportsModule,
     QuotesModule,
     MarketingModule,
+    EventsModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

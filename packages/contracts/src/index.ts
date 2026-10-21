@@ -10,3 +10,4 @@ export * from './activities';
 export * from './reports';
 export * from './quotes';
 export * from './marketing';
+export * from './events';
