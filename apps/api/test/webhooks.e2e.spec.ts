@@ -275,9 +275,9 @@ describe.skipIf(!run)('webhooks (database)', () => {
       });
     expect((await bad({ url: 'http://example.com/h' })).status).toBe(400);
     expect((await bad({ url: 'https://10.0.0.5/h' })).status).toBe(400);
-    expect((await bad({ url: 'https://169.254.169.254/latest' })).body.code).toBe(
-      'UNSAFE_WEBHOOK_URL',
-    );
+    const meta = await bad({ url: 'https://169.254.169.254/latest' });
+    expect(meta.status).toBe(400);
+    expect(meta.body.code ?? meta.body.error?.code).toBe('UNSAFE_WEBHOOK_URL');
     expect((await bad({ url: 'https://[::1]/h' })).status).toBe(400);
     expect((await bad({ url: 'https://u:p@example.com/h' })).status).toBe(400);
     expect((await bad({ url: 'http://10.0.0.5:8080/h' })).status).toBe(400); // allowLocal ≠ any private IP
