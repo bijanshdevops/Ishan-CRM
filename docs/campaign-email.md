@@ -26,3 +26,9 @@ Every mail carries a signed link and `List-Unsubscribe` / `List-Unsubscribe-Post
 ## Troubleshooting
 
 `SELECT status, count(*) FROM campaign_recipients WHERE campaign_id = '…' GROUP BY 1;` and `last_error` on failed rows.
+
+## Screens (slice 11b)
+
+- **Campaigns → ارسال ایمیل** (per row): compose subject/body, pick the audience (customer kind, tags), preview the recipient count, send a test to your own verified address, start with the previewed count, cancel a running send. Progress refreshes every 4 s while sending. Without `SMTP_HOST` the dialog says sending is unavailable.
+- **Campaigns → فهرست مسدودی**: list, add and remove suppressed addresses.
+- **`/unsubscribe?token=…`** (public): unsubscribes only on the button press, never on opening the page; the token is removed from the address bar.
