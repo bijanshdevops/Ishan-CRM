@@ -473,6 +473,17 @@ describe.skipIf(!db)('workflow engine (database)', () => {
         await new Promise((r) => setTimeout(r, 100));
       }
       const run = await prisma.workflowRun.findFirstOrThrow({ where: { workflowId: wfId } });
+      const evRow = await prisma.domainEvent.findUniqueOrThrow({ where: { id: run.eventId } });
+      const ownerRow = await prisma.user.findUnique({ where: { id: users.owner } });
+      expect({
+        sameEvent: run.eventId === id,
+        payloadOwner: evRow.payload.ownerId,
+        owner: users.owner,
+        ownerStatus: ownerRow?.status,
+        ownerOrg: ownerRow?.organizationId,
+        orgId,
+        deleted: ownerRow?.deletedAt,
+      }).toEqual({});
       expect(run.steps[0].note ?? 'no-note').toBe('no-note');
       expect({ status: run.status, error: run.error, steps: run.steps }).toMatchObject({
         status: 'SUCCEEDED',
