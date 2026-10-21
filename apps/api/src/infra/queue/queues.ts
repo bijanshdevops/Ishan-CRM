@@ -12,6 +12,7 @@ export const MAINTENANCE_JOBS = {
   scanTimeEvents: 'scan-time-events',
   purgeDispatchedEvents: 'purge-dispatched-events',
   purgeReadNotifications: 'purge-read-notifications',
+  purgeWorkflowRuns: 'purge-workflow-runs',
 } as const;
 
 export const EVENT_JOBS = {
@@ -53,5 +54,10 @@ export const MAINTENANCE_SCHEDULES: ReadonlyArray<{
     id: 'daily-purge-read-notifications',
     job: MAINTENANCE_JOBS.purgeReadNotifications,
     pattern: '20 0 * * *',
+  },
+  {
+    id: 'daily-purge-workflow-runs',
+    job: MAINTENANCE_JOBS.purgeWorkflowRuns,
+    pattern: '30 0 * * *',
   },
 ];

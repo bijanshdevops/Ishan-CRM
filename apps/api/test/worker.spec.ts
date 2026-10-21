@@ -36,6 +36,7 @@ describe('maintenance jobs (no services)', () => {
       retentionDays: 30,
       eventRetentionDays: 30,
       notificationRetentionDays: 90,
+      workflowRunRetentionDays: 90,
       publishEvents: async () => undefined,
       now: () => NOW,
     });

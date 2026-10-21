@@ -38,6 +38,9 @@ export const PERMISSIONS = {
   CAMPAIGNS_READ: 'campaigns.read',
   CAMPAIGNS_WRITE: 'campaigns.write',
   CAMPAIGNS_DELETE: 'campaigns.delete',
+  WORKFLOWS_READ: 'workflows.read',
+  WORKFLOWS_WRITE: 'workflows.write',
+  WORKFLOWS_DELETE: 'workflows.delete',
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -100,6 +103,9 @@ export const SYSTEM_ROLES: SystemRoleDefinition[] = [
       PERMISSIONS.CAMPAIGNS_READ,
       PERMISSIONS.CAMPAIGNS_WRITE,
       PERMISSIONS.CAMPAIGNS_DELETE,
+      PERMISSIONS.WORKFLOWS_READ,
+      PERMISSIONS.WORKFLOWS_WRITE,
+      PERMISSIONS.WORKFLOWS_DELETE,
     ],
   },
   {

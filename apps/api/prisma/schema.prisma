@@ -125,6 +125,7 @@ model Organization {
   leadSources LeadSource[]
   campaigns   Campaign[]
   domainEvents DomainEvent[]
+  workflows    Workflow[]
 
   @@map("organizations")
 }
@@ -182,6 +183,7 @@ model User {
   ownedCampaigns     Campaign[] @relation("CampaignOwner")
   createdCampaigns   Campaign[] @relation("CampaignCreator")
   notifications      Notification[]
+  createdWorkflows   Workflow[]
 
   @@unique([organizationId, email])
   @@index([roleId])
@@ -724,4 +726,49 @@ model Notification {
   @@index([userId, readAt])
   @@index([readAt])
   @@map("notifications")
+}
+
+model Workflow {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  name           String
+  description    String?
+  triggerType    String    @map("trigger_type")
+  /// Array of {field, op, value}; validated by @ishan/contracts before it is stored.
+  conditions     Json
+  /// 1-10 actions (notify, create_task); validated by @ishan/contracts.
+  actions        Json
+  enabled        Boolean   @default(false)
+  createdById    String    @map("created_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  createdBy    User          @relation(fields: [createdById], references: [id])
+  runs         WorkflowRun[]
+
+  @@index([organizationId, triggerType, enabled])
+  @@index([organizationId, id(sort: Desc)])
+  @@map("workflows")
+}
+
+/// Only matching executions are recorded. UNIQUE (workflow_id, event_id) makes re-delivery harmless.
+model WorkflowRun {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  workflowId String   @map("workflow_id") @db.Uuid
+  eventId    String   @map("event_id") @db.Uuid
+  status     String
+  startedAt  DateTime @map("started_at") @db.Timestamptz(6)
+  finishedAt DateTime @map("finished_at") @db.Timestamptz(6)
+  steps      Json
+  error      String?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@unique([workflowId, eventId])
+  @@index([workflowId, id(sort: Desc)])
+  @@index([createdAt])
+  @@map("workflow_runs")
 }
