@@ -109,7 +109,7 @@ describe.skipIf(!run)('admin edits a user e-mail (database)', () => {
 
   afterAll(async () => {
     if (prisma) {
-      await prisma.auditLog.deleteMany({ where: { entityId: { in: userIds } } });
+      // audit_logs is append-only: its rows stay, by design.
       await prisma.user.deleteMany({ where: { id: { in: userIds } } });
     }
     await app?.close();
