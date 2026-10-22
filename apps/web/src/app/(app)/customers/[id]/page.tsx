@@ -313,7 +313,11 @@ function ContactDialog({
             v === '' && k !== 'firstName' && k !== 'lastName' ? null : v,
           ]),
         );
-        return api(`/contacts/${contact.id}`, { method: 'PATCH', body });
+        return api(`/contacts/${contact.id}`, {
+          method: 'PATCH',
+          body,
+          version: contact.updatedAt,
+        });
       }
       return api(`/customers/${customerId}/contacts`, { method: 'POST', body: parsed.data });
     },

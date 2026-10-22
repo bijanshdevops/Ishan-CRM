@@ -135,7 +135,11 @@ export function ActivityFormDialog({
           }
           if (showOutcome) body.outcome = f.outcome || null;
         }
-        return api<ActivityDto>(`/activities/${activity.id}`, { method: 'PATCH', body });
+        return api<ActivityDto>(`/activities/${activity.id}`, {
+          method: 'PATCH',
+          body,
+          version: activity.updatedAt,
+        });
       }
       const candidate = {
         type: f.type,

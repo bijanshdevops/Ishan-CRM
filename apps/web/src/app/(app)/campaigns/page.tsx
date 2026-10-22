@@ -446,7 +446,7 @@ function CampaignDialog({
             notes: notes.trim() || undefined,
           };
       return campaign
-        ? api(`/campaigns/${campaign.id}`, { method: 'PATCH', body })
+        ? api(`/campaigns/${campaign.id}`, { method: 'PATCH', body, version: campaign.updatedAt })
         : api('/campaigns', { method: 'POST', body });
     },
     onSuccess: () => {
