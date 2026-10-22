@@ -166,7 +166,7 @@ describe.skipIf(!run)('row-level access (database)', () => {
       ).toBe(false);
     }
     expect(
-      (await call('GET', `/customers/search?q=${encodeURIComponent('مشتری')}`, 'ra-c')).body
+      (await call('GET', `/search?q=${encodeURIComponent('مشتری')}`, 'ra-c')).body
         .customers,
     ).toEqual([]);
   });
