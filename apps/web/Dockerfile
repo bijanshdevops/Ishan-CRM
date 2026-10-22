@@ -22,6 +22,8 @@ RUN pnpm --filter @ishan/contracts build && pnpm --filter @ishan/i18n build && p
 
 FROM node:22-alpine AS runner
 ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0
+# npm is never called at runtime; its bundled packages only add CVEs.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 WORKDIR /app
 COPY --from=build --chown=node:node /repo/apps/web/.next/standalone ./
 COPY --from=build --chown=node:node /repo/apps/web/.next/static ./apps/web/.next/static
