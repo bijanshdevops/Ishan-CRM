@@ -40,6 +40,8 @@ export type CreateUserRequest = z.infer<typeof CreateUserRequestSchema>;
 export const UpdateUserRequestSchema = z
   .object({
     name: z.string().trim().min(2).max(100),
+    /** Changing it clears the e-mail verification and signs the person out everywhere (ADR 0020). */
+    email: EmailSchema,
     roleId: z.string().uuid(),
     status: z.enum(['ACTIVE', 'DISABLED']),
   })
