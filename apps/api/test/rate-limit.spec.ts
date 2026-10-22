@@ -114,4 +114,45 @@ describe.skipIf(process.env.RUN_DB_TESTS !== '1')('sign-in limits (database)', (
     // another account is not affected
     expect(await login(`other-${email}`)).toBe(401);
   });
+
+  it('public endpoints share their per-IP window between replicas (ADR 0022)', async () => {
+    if (!process.env.REDIS_URL) return;
+    applyTestEnv();
+    const { createApp } = await import('../src/bootstrap');
+    const other = await createApp();
+    await other.init();
+    await other.getHttpAdapter().getInstance().ready();
+    try {
+      // A private address per run: the window is shared through Redis with every other spec.
+      const remoteAddress = `10.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}.7`;
+      const hit = async (a: typeof app, url: string, payload: object) =>
+        (
+          await a.inject({
+            method: 'POST',
+            url: `/api/v1${url}`,
+            remoteAddress,
+            headers: { origin: ORIGIN },
+            payload,
+          })
+        ).statusCode;
+      const verify = { token: 'x'.repeat(30) };
+      const codes: number[] = [];
+      for (let i = 0; i < 20; i++)
+        codes.push(await hit(i % 2 ? app : other, '/auth/verify-email', verify));
+      expect(new Set(codes)).toEqual(new Set([400]));
+      // The 21st request is refused whichever replica receives it.
+      expect(await hit(app, '/auth/verify-email', verify)).toBe(429);
+      expect(await hit(other, '/auth/verify-email', verify)).toBe(429);
+
+      // Another endpoint has its own counter: 30 per minute, then refused.
+      const unsub = { token: 'bad' };
+      const u: number[] = [];
+      for (let i = 0; i < 30; i++)
+        u.push(await hit(i % 2 ? app : other, '/public/unsubscribe', unsub));
+      expect(new Set(u)).toEqual(new Set([400]));
+      expect(await hit(other, '/public/unsubscribe', unsub)).toBe(429);
+    } finally {
+      await other.close();
+    }
+  });
 });

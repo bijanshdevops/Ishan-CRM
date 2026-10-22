@@ -24,8 +24,8 @@ import {
 import type { FastifyRequest } from 'fastify';
 import type { z } from 'zod';
 import { CurrentUser, Public, RequirePermission, type AuthUser } from '../../common/decorators';
-import { RateLimiter } from '../../common/rate-limiter';
 import { ZodValidationPipe } from '../../common/zod.pipe';
+import { RateLimitService } from '../../infra/rate-limit.service';
 import { CampaignSendingService } from './campaign-sending.service';
 
 type Infer<T extends z.ZodTypeAny> = z.infer<T>;
@@ -124,20 +124,21 @@ export class CampaignSendingController {
 @ApiTags('public')
 @Controller('public')
 export class UnsubscribeController {
-  private readonly limiter = new RateLimiter(30, 60_000);
-
-  constructor(private readonly sending: CampaignSendingService) {}
+  constructor(
+    private readonly sending: CampaignSendingService,
+    private readonly rateLimit: RateLimitService,
+  ) {}
 
   /** Token in the body (web page) or in the query (RFC 8058 one-click, whose form body is ignored). */
   @Post('unsubscribe')
   @Public()
   @HttpCode(200)
-  unsubscribe(
+  async unsubscribe(
     @Req() req: FastifyRequest,
     @Body() body: unknown,
     @Query('token') queryToken?: string,
   ) {
-    if (!this.limiter.allow(req.ip)) {
+    if (!(await this.rateLimit.allow(`unsubscribe:ip:${req.ip}`, 30, 60_000))) {
       throw new HttpException(
         { code: 'rate_limited', message: 'تلاش‌های بیش از حد. کمی بعد دوباره امتحان کنید.' },
         HttpStatus.TOO_MANY_REQUESTS,
