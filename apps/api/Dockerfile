@@ -29,7 +29,7 @@ ENV NODE_ENV=production \
 COPY --from=build /repo /repo
 # Only runtime dependencies ship: drop the dev/test toolchain (smaller image, fewer CVEs) and npm itself,
 # which the container never calls (corepack/pnpm stay for the build stages only).
-RUN pnpm install --prod --frozen-lockfile --filter @ishan/api... \
+RUN CI=true pnpm install --prod --frozen-lockfile --filter @ishan/api... \
     && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 USER node
 WORKDIR /repo/apps/api
