@@ -362,6 +362,31 @@ test.describe.serial('Ishan CRM end-to-end', () => {
     await expect(page.getByText(fa.quotes.transitioned)).toBeVisible();
     await expect(page.getByText(fa.quotes.lockedHint)).toBeVisible();
     await expect(page.getByTestId('stamp')).toHaveAttribute('data-status', 'SENT');
+
+    // server-made PDF: a real PDF file named after the quote number
+    const number = (await page.getByTestId('doc-number').textContent())!.trim();
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: fa.quoteDelivery.downloadPdf }).click(),
+    ]);
+    expect(download.suggestedFilename()).toBe(`${number}-v1.pdf`);
+    const file = await download.createReadStream();
+    const head: Buffer[] = [];
+    for await (const chunk of file) {
+      head.push(chunk as Buffer);
+      if (Buffer.concat(head).length >= 5) break;
+    }
+    expect(Buffer.concat(head).subarray(0, 5).toString()).toBe('%PDF-');
+
+    // e-mail: this stack has no SMTP, so the dialog says so instead of offering a send
+    await page.getByRole('button', { name: fa.quoteDelivery.sendEmail }).click();
+    const mail = page.getByRole('dialog');
+    await expect(mail.getByText(fa.quoteDelivery.unavailable)).toBeVisible();
+    await expect(mail.getByRole('button', { name: fa.quoteDelivery.send })).toHaveCount(0);
+    await mail.getByRole('button', { name: fa.common.close }).click();
+    await expect(page.getByText(fa.quoteDelivery.empty)).toBeVisible();
+    await a11y(page, '/quotes/[id] (sent)');
+
     await page.getByRole('button', { name: fa.quotes.accept }).click();
     await expect(page.getByTestId('stamp')).toHaveAttribute('data-status', 'ACCEPTED');
     await page.getByRole('button', { name: fa.quotes.createContract }).click();

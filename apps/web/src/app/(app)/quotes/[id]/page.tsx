@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { PERMISSIONS, type QuoteDto, type QuoteSummaryDto } from '@ishan/contracts';
 import { fa, formatJalaliDate, formatMoney, formatNumber } from '@ishan/i18n';
+import { QuoteEmailButton, QuoteEmailsCard, QuotePdfButton } from '@/components/quote-delivery';
 import { QuoteForm } from '@/components/quote-form';
 import { Stamp } from '@/components/stamp';
 import { useToast } from '@/components/toast';
@@ -111,6 +112,8 @@ export default function QuoteDetailPage() {
             <Button variant="secondary" onClick={() => window.print()}>
               {fa.quotes.print}
             </Button>
+            <QuotePdfButton quote={q} />
+            <QuoteEmailButton quote={q} />
             {canWrite && q.status === 'DRAFT' ? (
               <>
                 <Button variant="secondary" onClick={() => setEditing(true)}>
@@ -319,6 +322,8 @@ export default function QuoteDetailPage() {
       <p className="mt-2 text-sm text-[var(--color-text-muted)] print:hidden">
         {fa.quotes.pdfHint}
       </p>
+
+      <QuoteEmailsCard quote={q} />
 
       {q.contract ? (
         <p className="mt-4 text-sm print:hidden">
