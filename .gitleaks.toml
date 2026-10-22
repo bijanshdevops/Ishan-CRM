@@ -11,3 +11,9 @@ paths = [
   '''deploy/compose\.dev\.yml''',
   '''apps/api/test/.*\.spec\.ts''',
 ]
+# The two public development values that production refuses to boot with (ADR 0023);
+# apps/api/src/config.ts must name them to reject them.
+regexes = [
+  '''ZGV2LW9ubHktZW5jcnlwdGlvbi1rZXktMzItYnl0ZXM=''',
+  '''ChangeMe-Dev-2026!''',
+]

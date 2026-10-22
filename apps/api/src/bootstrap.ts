@@ -9,9 +9,10 @@ import { loadConfig } from './config';
 
 export async function createApp(): Promise<NestFastifyApplication> {
   const config = loadConfig();
+  // proxy-addr (behind Fastify) also accepts a hop count, which the type definition omits.
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter({ trustProxy: true }),
+    new FastifyAdapter({ trustProxy: (config.TRUST_PROXY ?? true) as never }),
     { bufferLogs: true },
   );
   app.useLogger(app.get(Logger));
