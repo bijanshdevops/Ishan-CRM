@@ -3,6 +3,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import type { CreateUserRequest, ListQuery, Page, UserDto } from '@ishan/contracts';
@@ -11,6 +12,8 @@ import { PrismaService } from '../../infra/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { PasswordService } from '../auth/password.service';
 import { SessionService } from '../auth/session.service';
+import { buildEmailChangeNotice } from '../notifications/email-change-notice';
+import { MailerService } from '../notifications/mailer.service';
 import { toUserDto } from './user.mapper';
 
 const isUniqueViolation = (e: unknown) =>
@@ -27,11 +30,14 @@ interface UpdateInput {
 
 @Injectable()
 export class UsersService {
+  private readonly log = new Logger(UsersService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly passwords: PasswordService,
     private readonly sessions: SessionService,
     private readonly audit: AuditService,
+    private readonly mailer: MailerService,
   ) {}
 
   async list(actor: AuthUser, query: ListQuery): Promise<Page<UserDto>> {
@@ -202,6 +208,7 @@ export class UsersService {
         metadata: { from: target.email, to: dto.email },
         ip,
       });
+      await this.tellOldAddress(target.email, dto.email as string);
     }
     if (willDisable || emailChanged || (dto.roleId && dto.roleId !== target.roleId)) {
       await this.sessions.revokeAllForUser(id);
@@ -216,6 +223,19 @@ export class UsersService {
       ip,
     });
     return toUserDto(row);
+  }
+
+  /**
+   * Best effort: the change is already done and audited, so a missing or failing mail channel must
+   * not undo or fail it. The outcome is logged without the addresses.
+   */
+  private async tellOldAddress(oldEmail: string, newEmail: string): Promise<void> {
+    if (!this.mailer.available) return;
+    try {
+      await this.mailer.send(buildEmailChangeNotice({ oldEmail, newEmail }));
+    } catch {
+      this.log.warn('could not send the e-mail change notice to the previous address');
+    }
   }
 
   async resetPassword(
