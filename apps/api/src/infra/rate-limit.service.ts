@@ -48,6 +48,7 @@ export class RateLimitService implements OnApplicationShutdown {
   async allow(key: string, max: number, windowMs: number): Promise<boolean> {
     if (this.redis) {
       try {
+        await this.untilReady();
         const count = Number(await this.redis.eval(INCR_SCRIPT, 1, `rl:${key}`, windowMs));
         return count <= max;
       } catch (e) {
@@ -61,6 +62,24 @@ export class RateLimitService implements OnApplicationShutdown {
       this.local.set(id, limiter);
     }
     return limiter.allow(key);
+  }
+
+  /** Without an offline queue, the very first commands would fail while the socket is still opening. */
+  private async untilReady(): Promise<void> {
+    const c = this.owned;
+    if (!c || c.status === 'ready' || this.redis !== (c as unknown as CounterClient)) return;
+    if (c.status !== 'connecting' && c.status !== 'connect') return;
+    await new Promise<void>((resolve) => {
+      const done = () => {
+        clearTimeout(timer);
+        c.off('ready', done);
+        c.off('error', done);
+        resolve();
+      };
+      const timer = setTimeout(done, 1_000);
+      c.once('ready', done);
+      c.once('error', done);
+    });
   }
 
   private warn(e: unknown): void {
