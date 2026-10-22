@@ -1,5 +1,4 @@
 import 'reflect-metadata';
-import { createServer } from 'node:http';
 import { Logger as NestLogger, Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { Logger, LoggerModule } from 'nestjs-pino';
@@ -9,6 +8,9 @@ import { InfraModule } from './infra/infra.module';
 import { PrismaService } from './infra/prisma.service';
 import { QueueService } from './infra/queue/queue.service';
 import { startWorker } from './jobs/start-worker';
+import { createWorkerServer } from './jobs/worker-http';
+import { collectQueueSnapshots, JobCounters, renderMetrics } from './infra/queue/queue-metrics';
+import { QUEUES } from './infra/queue/queues';
 
 @Module({
   imports: [
@@ -44,16 +46,21 @@ async function main(): Promise<void> {
     info: (o: object, m: string) => log.log(o, m),
     error: (o: object, m: string) => log.error(o, m),
   };
-  const { isRunning, stop } = await startWorker(queues, prisma, config, pino);
+  const { workers, isRunning, stop } = await startWorker(queues, prisma, config, pino);
 
-  // Container health only: no public surface. 200 while the worker runs and Redis answers.
-  const health = createServer((req, res) => {
-    void (async () => {
-      const ok = req.url === '/health/live' && isRunning() && (await queues.ping());
-      res.statusCode = ok ? 200 : 503;
-      res.setHeader('content-type', 'application/json');
-      res.end(JSON.stringify({ status: ok ? 'ok' : 'error' }));
-    })();
+  // Internal only (never published): container health and Prometheus metrics, see ADR 0019.
+  const counters = new JobCounters();
+  workers.forEach((w) => counters.attach(w));
+  const health = createWorkerServer({
+    isRunning,
+    ping: () => queues.ping(),
+    metrics: async () =>
+      renderMetrics({
+        snapshots: await collectQueueSnapshots(queues),
+        expectedQueues: Object.keys(QUEUES).length,
+        counters,
+        workerUp: isRunning(),
+      }),
   });
   health.listen(config.WORKER_PORT, '0.0.0.0');
 
