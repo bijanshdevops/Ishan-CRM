@@ -1,7 +1,14 @@
 import 'reflect-metadata';
 import { HttpException } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
-import { assertIfMatch, etagOf, hasPrecondition, unchangedSince } from '../src/common/etag';
+import {
+  assertIfMatch,
+  assertWritten,
+  casWhere,
+  etagOf,
+  hasPrecondition,
+  unchangedSince,
+} from '../src/common/etag';
 
 describe('etag', () => {
   const t = new Date('2026-10-20T10:00:00.123Z');
@@ -42,5 +49,23 @@ describe('etag', () => {
     const w = unchangedSince(t).updatedAt;
     expect(w.gte.getTime()).toBe(t.getTime());
     expect(w.lt.getTime()).toBe(t.getTime() + 1);
+  });
+
+  it('casWhere adds the updated_at window only for a concrete tag', () => {
+    expect(casWhere('r1', undefined, t)).toEqual({ id: 'r1' });
+    expect(casWhere('r1', '*', t)).toEqual({ id: 'r1' });
+    expect(casWhere('r1', etagOf(t), t)).toEqual({ id: 'r1', ...unchangedSince(t) });
+  });
+
+  it('assertWritten: 412 with a precondition, the given error without one, silent when written', () => {
+    const gone = new HttpException('gone', 404);
+    expect(() => assertWritten(1, etagOf(t), gone)).not.toThrow();
+    expect(() => assertWritten(0, undefined, gone)).toThrow(gone);
+    try {
+      assertWritten(0, etagOf(t), gone);
+      expect.unreachable();
+    } catch (e) {
+      expect((e as HttpException).getStatus()).toBe(412);
+    }
   });
 });

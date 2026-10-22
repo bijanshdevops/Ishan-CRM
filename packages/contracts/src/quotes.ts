@@ -92,6 +92,7 @@ export interface ProductDto {
   description: string | null;
   active: boolean;
   createdAt: string;
+  updatedAt: string;
 }
 
 // ---- Quotes -----------------------------------------------------------------

@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   Param,
   ParseUUIDPipe,
@@ -86,8 +87,9 @@ export class ActivitiesController {
     @Body(new ZodValidationPipe(UpdateActivityRequestSchema))
     body: Infer<typeof UpdateActivityRequestSchema>,
     @Req() req: FastifyRequest,
+    @Headers('if-match') ifMatch: string | undefined,
   ) {
-    return this.activities.update(actor, id, body, req.ip);
+    return this.activities.update(actor, id, body, req.ip, ifMatch);
   }
 
   @Post(':id/complete')

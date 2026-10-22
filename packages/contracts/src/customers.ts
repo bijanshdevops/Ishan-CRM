@@ -156,6 +156,7 @@ export interface ContactDto {
   isPrimary: boolean;
   notes: string | null;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface CustomerDto {

@@ -95,6 +95,7 @@ export interface UserDto {
   role: { id: string; key: string; name: string };
   lastLoginAt: string | null;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface SessionUserDto extends UserDto {

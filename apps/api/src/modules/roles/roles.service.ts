@@ -1,3 +1,4 @@
+import { assertIfMatch, assertWritten, casWhere } from '../../common/etag';
 import {
   BadRequestException,
   ConflictException,
@@ -18,6 +19,7 @@ interface RoleRow {
   isSystem: boolean;
   permissions: string[];
   dataScope: string;
+  updatedAt: Date;
 }
 
 const toDto = (r: RoleRow, userCount?: number) => ({
@@ -28,6 +30,7 @@ const toDto = (r: RoleRow, userCount?: number) => ({
   isSystem: r.isSystem,
   permissions: r.permissions,
   dataScope: r.dataScope,
+  updatedAt: r.updatedAt.toISOString(),
   ...(userCount !== undefined ? { userCount } : {}),
 });
 
@@ -111,11 +114,13 @@ export class RolesService {
       dataScope?: DataScope;
     },
     ip?: string,
+    ifMatch?: string,
   ) {
     const role = await this.prisma.role.findFirst({
       where: { id, organizationId: actor.organizationId },
     });
     if (!role) throw new NotFoundException('نقش یافت نشد');
+    assertIfMatch(ifMatch, role.updatedAt);
     if (role.isSystem) {
       // System roles keep their name and permissions; only the data scope is adjustable (not admin's).
       const onlyScope =
@@ -137,8 +142,8 @@ export class RolesService {
       }
     }
     const perms = dto.permissions ? this.validatePermissions(dto.permissions) : undefined;
-    const row = await this.prisma.role.update({
-      where: { id },
+    const written = await this.prisma.role.updateMany({
+      where: casWhere(id, ifMatch, role.updatedAt),
       data: {
         ...(dto.name !== undefined ? { name: dto.name } : {}),
         ...(dto.description !== undefined ? { description: dto.description } : {}),
@@ -146,6 +151,8 @@ export class RolesService {
         ...(dto.dataScope !== undefined ? { dataScope: dto.dataScope } : {}),
       },
     });
+    assertWritten(written.count, ifMatch, new NotFoundException('نقش یافت نشد'));
+    const row = await this.prisma.role.findUniqueOrThrow({ where: { id } });
     await this.audit.record({
       organizationId: actor.organizationId,
       actorId: actor.id,
