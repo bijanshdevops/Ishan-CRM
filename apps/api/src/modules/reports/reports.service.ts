@@ -13,6 +13,7 @@ import type {
 } from '@ishan/contracts';
 import { DEFAULT_REPORT_DAYS, PERMISSIONS, roiBasisPoints } from '@ishan/contracts';
 import type { AuthUser } from '../../common/decorators';
+import { activityScopeWhere, ownerWhere } from '../../common/access-scope';
 import { PrismaService } from '../../infra/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { toCsv } from '../customers/csv';
@@ -41,7 +42,7 @@ export class ReportsService {
    */
   async campaignRoi(actor: AuthUser): Promise<CampaignRoiRowDto[]> {
     const campaigns = await this.prisma.campaign.findMany({
-      where: { organizationId: actor.organizationId, deletedAt: null },
+      where: { organizationId: actor.organizationId, deletedAt: null, ...ownerWhere(actor) },
       select: { id: true, name: true, status: true, budget: true },
       orderBy: { id: 'desc' },
       take: 500,
@@ -51,6 +52,7 @@ export class ReportsService {
       where: {
         organizationId: actor.organizationId,
         deletedAt: null,
+        ...ownerWhere(actor),
         campaignId: { in: campaigns.map((c) => c.id) },
       },
       select: { campaignId: true, status: true, convertedDealId: true },
@@ -63,6 +65,7 @@ export class ReportsService {
             id: { in: dealIds },
             organizationId: actor.organizationId,
             deletedAt: null,
+            ...ownerWhere(actor),
             stage: { kind: 'WON' },
           },
           select: { id: true, amount: true },
@@ -108,6 +111,7 @@ export class ReportsService {
         where: {
           organizationId: actor.organizationId,
           deletedAt: null,
+          ...ownerWhere(actor),
           createdAt: { gte: from, lt: to },
         },
         _count: { _all: true },
@@ -165,6 +169,7 @@ export class ReportsService {
     const base = {
       organizationId: actor.organizationId,
       deletedAt: null,
+      ...ownerWhere(actor),
       ...(mine ? { ownerId: actor.id } : {}),
     };
     const [total, created] = await Promise.all([
@@ -178,6 +183,7 @@ export class ReportsService {
     const base = {
       organizationId: actor.organizationId,
       deletedAt: null,
+      ...ownerWhere(actor),
       ...(mine ? { ownerId: actor.id } : {}),
     };
     const [groups, created, converted] = await Promise.all([
@@ -207,6 +213,7 @@ export class ReportsService {
     const base = {
       organizationId: actor.organizationId,
       deletedAt: null,
+      ...ownerWhere(actor),
       ...(mine ? { ownerId: actor.id } : {}),
     };
     const [stages, openGroups, closedGroups, wonRows] = await Promise.all([
@@ -305,7 +312,10 @@ export class ReportsService {
     const base: Prisma.ActivityWhereInput = {
       organizationId: actor.organizationId,
       deletedAt: null,
-      OR: [{ customerId: null }, { customer: { deletedAt: null } }],
+      AND: [
+        { OR: [{ customerId: null }, { customer: { deletedAt: null } }] },
+        activityScopeWhere(actor),
+      ],
       ...(mine ? { assigneeId: actor.id } : {}),
     };
     const [overdue, groups] = await Promise.all([
@@ -343,6 +353,7 @@ export class ReportsService {
         where: {
           organizationId: org,
           deletedAt: null,
+          ...ownerWhere(actor),
           OR: [{ stage: { kind: 'OPEN' } }, { closedAt: { gte: from, lt: to } }],
         },
         _count: { _all: true },
@@ -353,6 +364,7 @@ export class ReportsService {
         where: {
           organizationId: org,
           deletedAt: null,
+          ...activityScopeWhere(actor),
           status: 'DONE',
           completedAt: { gte: from, lt: to },
         },

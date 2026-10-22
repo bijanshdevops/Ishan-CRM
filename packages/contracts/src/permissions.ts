@@ -56,11 +56,19 @@ export function isPermission(value: string): value is Permission {
   return (ALL_PERMISSIONS as string[]).includes(value);
 }
 
+/** Which records a role can see and change (ADR 0017). */
+export const DATA_SCOPES = ['ALL', 'TEAM', 'OWN'] as const;
+export type DataScope = (typeof DATA_SCOPES)[number];
+export const isDataScope = (v: unknown): v is DataScope =>
+  typeof v === 'string' && (DATA_SCOPES as readonly string[]).includes(v);
+
 export interface SystemRoleDefinition {
   key: string;
   name: string;
   description: string;
   permissions: Permission[];
+  /** Scope given to this role in a new organization; existing roles keep what they have. */
+  dataScope: DataScope;
 }
 
 export const SYSTEM_ROLES: SystemRoleDefinition[] = [
@@ -69,6 +77,7 @@ export const SYSTEM_ROLES: SystemRoleDefinition[] = [
     name: 'مدیر سیستم',
     description: 'دسترسی کامل به همه بخش‌ها',
     permissions: ALL_PERMISSIONS,
+    dataScope: 'ALL',
   },
   {
     key: 'manager',
@@ -113,6 +122,7 @@ export const SYSTEM_ROLES: SystemRoleDefinition[] = [
       PERMISSIONS.WORKFLOWS_WRITE,
       PERMISSIONS.WORKFLOWS_DELETE,
     ],
+    dataScope: 'ALL',
   },
   {
     key: 'sales',
@@ -136,6 +146,7 @@ export const SYSTEM_ROLES: SystemRoleDefinition[] = [
       PERMISSIONS.CONTRACTS_READ,
       PERMISSIONS.CAMPAIGNS_READ,
     ],
+    dataScope: 'TEAM',
   },
   {
     key: 'viewer',
@@ -151,5 +162,6 @@ export const SYSTEM_ROLES: SystemRoleDefinition[] = [
       PERMISSIONS.CONTRACTS_READ,
       PERMISSIONS.CAMPAIGNS_READ,
     ],
+    dataScope: 'ALL',
   },
 ];

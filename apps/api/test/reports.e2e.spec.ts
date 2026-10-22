@@ -75,6 +75,8 @@ describe.skipIf(!run)('dashboard and reports (database)', () => {
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
     prisma = app.get(PrismaService);
+    // These specs are about other features: let the sales role see the whole organization (row access has its own spec).
+    await prisma.role.updateMany({ where: { key: 'sales' }, data: { dataScope: 'ALL' } });
     const hash = await app.get(PasswordService).hash(PASSWORD);
     const org = await prisma.organization.findFirstOrThrow({ where: { deletedAt: null } });
     const mk = async (name: string, rid: string, display = name) => {

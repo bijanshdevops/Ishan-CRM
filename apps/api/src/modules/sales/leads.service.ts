@@ -10,6 +10,7 @@ import type {
 } from '@ishan/contracts';
 import { normalizeText, parseRial } from '@ishan/contracts';
 import type { AuthUser } from '../../common/decorators';
+import { assertCanAssign, ownerWhere, resolveOwner } from '../../common/access-scope';
 import { PrismaService } from '../../infra/prisma.service';
 import { DomainEventsService } from '../events/domain-events.service';
 import { AuditService } from '../audit/audit.service';
@@ -30,6 +31,7 @@ export class LeadsService {
       where: {
         organizationId: actor.organizationId,
         deletedAt: null,
+        ...ownerWhere(actor),
         ...(q.status ? { status: q.status } : {}),
         ...(q.ownerId ? { ownerId: q.ownerId } : {}),
         ...(q.sourceId ? { sourceId: q.sourceId } : {}),
@@ -47,7 +49,7 @@ export class LeadsService {
 
   async get(actor: AuthUser, id: string): Promise<LeadDto> {
     const l = await this.prisma.lead.findFirst({
-      where: { id, organizationId: actor.organizationId, deletedAt: null },
+      where: { id, organizationId: actor.organizationId, deletedAt: null, ...ownerWhere(actor) },
       include: leadInclude,
     });
     if (!l) throw new NotFoundException('سرنخ یافت نشد');
@@ -91,7 +93,8 @@ export class LeadsService {
   }
 
   async create(actor: AuthUser, dto: CreateLeadRequest, ip?: string) {
-    await this.assertOwner(actor.organizationId, dto.ownerId);
+    const ownerId = resolveOwner(actor, dto.ownerId);
+    await this.assertOwner(actor.organizationId, ownerId);
     const sourceName = await this.assertRefs(actor.organizationId, dto.sourceId, dto.campaignId);
     const lead = await this.prisma.lead.create({
       data: {
@@ -103,7 +106,7 @@ export class LeadsService {
         sourceId: dto.sourceId ?? null,
         campaignId: dto.campaignId ?? null,
         notes: dto.notes ?? null,
-        ownerId: dto.ownerId ?? actor.id,
+        ownerId: ownerId ?? actor.id,
         createdById: actor.id,
         searchText: leadSearchText({ ...dto, sourceName }),
       },
@@ -135,7 +138,7 @@ export class LeadsService {
 
   async update(actor: AuthUser, id: string, dto: UpdateLeadRequest, ip?: string, ifMatch?: string) {
     const existing = await this.prisma.lead.findFirst({
-      where: { id, organizationId: actor.organizationId, deletedAt: null },
+      where: { id, organizationId: actor.organizationId, deletedAt: null, ...ownerWhere(actor) },
     });
     if (!existing) throw new NotFoundException('سرنخ یافت نشد');
     assertIfMatch(ifMatch, existing.updatedAt);
@@ -145,7 +148,10 @@ export class LeadsService {
         message: 'سرنخ تبدیل‌شده قابل ویرایش نیست',
       });
     }
-    if (dto.ownerId !== undefined) await this.assertOwner(actor.organizationId, dto.ownerId);
+    if (dto.ownerId !== undefined) {
+      assertCanAssign(actor, dto.ownerId);
+      await this.assertOwner(actor.organizationId, dto.ownerId);
+    }
     const checkedName = await this.assertRefs(actor.organizationId, dto.sourceId, dto.campaignId);
     const sourceName =
       dto.sourceId === undefined
@@ -198,7 +204,7 @@ export class LeadsService {
 
   async remove(actor: AuthUser, id: string, ip?: string) {
     const l = await this.prisma.lead.findFirst({
-      where: { id, organizationId: actor.organizationId, deletedAt: null },
+      where: { id, organizationId: actor.organizationId, deletedAt: null, ...ownerWhere(actor) },
       select: { id: true },
     });
     if (!l) throw new NotFoundException('سرنخ یافت نشد');
@@ -216,7 +222,7 @@ export class LeadsService {
   /** Atomically turns a lead into a customer (+ contact) and optionally a deal. */
   async convert(actor: AuthUser, id: string, dto: ConvertLeadRequest, ip?: string) {
     const lead = await this.prisma.lead.findFirst({
-      where: { id, organizationId: actor.organizationId, deletedAt: null },
+      where: { id, organizationId: actor.organizationId, deletedAt: null, ...ownerWhere(actor) },
     });
     if (!lead) throw new NotFoundException('سرنخ یافت نشد');
     if (lead.status === 'CONVERTED' || lead.status === 'DISQUALIFIED') {
@@ -237,7 +243,12 @@ export class LeadsService {
     }
     if (dto.customerId) {
       const c = await this.prisma.customer.findFirst({
-        where: { id: dto.customerId, organizationId: actor.organizationId, deletedAt: null },
+        where: {
+          id: dto.customerId,
+          organizationId: actor.organizationId,
+          deletedAt: null,
+          ...ownerWhere(actor),
+        },
         select: { id: true },
       });
       if (!c)

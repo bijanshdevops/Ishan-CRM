@@ -50,12 +50,15 @@ export class BootstrapService implements OnApplicationBootstrap {
           description: def.description,
           isSystem: true,
           permissions: def.permissions,
+          dataScope: def.dataScope,
         },
         update: {
           name: def.name,
           description: def.description,
           isSystem: true,
           permissions: def.permissions,
+          // The scope of the other system roles is the organization's choice; only admin is fixed.
+          ...(def.key === 'admin' ? { dataScope: 'ALL' } : {}),
         },
       });
     }

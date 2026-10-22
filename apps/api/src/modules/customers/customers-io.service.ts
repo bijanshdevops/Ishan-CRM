@@ -61,7 +61,7 @@ export class CustomersIoService {
 
   async export(actor: AuthUser, q: Omit<CustomerListQuery, 'limit' | 'cursor'>, ip?: string) {
     const rows = await this.prisma.customer.findMany({
-      where: this.customers.buildWhere(actor.organizationId, q),
+      where: this.customers.buildWhere(actor, q),
       orderBy: { id: 'desc' },
       take: MAX_EXPORT_ROWS,
     });

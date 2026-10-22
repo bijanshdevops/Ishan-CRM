@@ -66,12 +66,14 @@ export const CreateRoleRequestSchema = z.object({
   name: z.string().trim().min(2).max(80),
   description: z.string().trim().max(300).optional(),
   permissions: z.array(z.string()).max(64),
+  dataScope: z.enum(['ALL', 'TEAM', 'OWN']).default('ALL'),
 });
 export const UpdateRoleRequestSchema = z
   .object({
     name: z.string().trim().min(2).max(80),
     description: z.string().trim().max(300),
     permissions: z.array(z.string()).max(64),
+    dataScope: z.enum(['ALL', 'TEAM', 'OWN']),
   })
   .partial()
   .refine((v) => Object.keys(v).length > 0, 'حداقل یک فیلد لازم است');

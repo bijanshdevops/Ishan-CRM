@@ -21,6 +21,7 @@ import {
   parseRial,
 } from '@ishan/contracts';
 import type { AuthUser } from '../../common/decorators';
+import { ownerWhere } from '../../common/access-scope';
 import type { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../infra/prisma.service';
 import { DomainEventsService } from '../events/domain-events.service';
@@ -65,6 +66,7 @@ export class QuotesService {
       where: {
         organizationId: actor.organizationId,
         deletedAt: null,
+        ...ownerWhere(actor),
         ...(q.status
           ? { status: q.status }
           : q.history === 'true'
@@ -89,7 +91,7 @@ export class QuotesService {
 
   async get(actor: AuthUser, id: string): Promise<QuoteDto> {
     const q = await this.prisma.quote.findFirst({
-      where: { id, organizationId: actor.organizationId, deletedAt: null },
+      where: { id, organizationId: actor.organizationId, deletedAt: null, ...ownerWhere(actor) },
       include: quoteInclude,
     });
     if (!q) throw new NotFoundException('پیش‌فاکتور یافت نشد');
@@ -99,7 +101,7 @@ export class QuotesService {
   /** Every version of one quote number, newest first. */
   async versions(actor: AuthUser, id: string) {
     const q = await this.prisma.quote.findFirst({
-      where: { id, organizationId: actor.organizationId, deletedAt: null },
+      where: { id, organizationId: actor.organizationId, deletedAt: null, ...ownerWhere(actor) },
       select: { seq: true },
     });
     if (!q) throw new NotFoundException('پیش‌فاکتور یافت نشد');
@@ -121,7 +123,7 @@ export class QuotesService {
   ) {
     const org = actor.organizationId;
     const customer = await this.prisma.customer.findFirst({
-      where: { id: refs.customerId, organizationId: org, deletedAt: null },
+      where: { id: refs.customerId, organizationId: org, deletedAt: null, ...ownerWhere(actor) },
       select: { id: true },
     });
     if (!customer)
@@ -146,6 +148,7 @@ export class QuotesService {
           organizationId: org,
           customerId: refs.customerId,
           deletedAt: null,
+          ...ownerWhere(actor),
         },
         select: { id: true },
       });
@@ -233,7 +236,7 @@ export class QuotesService {
     ip?: string,
   ): Promise<QuoteDto> {
     const existing = await this.prisma.quote.findFirst({
-      where: { id, organizationId: actor.organizationId, deletedAt: null },
+      where: { id, organizationId: actor.organizationId, deletedAt: null, ...ownerWhere(actor) },
       include: { items: true, customer: { select: { name: true } } },
     });
     if (!existing) throw new NotFoundException('پیش‌فاکتور یافت نشد');
@@ -340,7 +343,7 @@ export class QuotesService {
 
   async transition(actor: AuthUser, id: string, to: QuoteStatus, ip?: string): Promise<QuoteDto> {
     const q = await this.prisma.quote.findFirst({
-      where: { id, organizationId: actor.organizationId, deletedAt: null },
+      where: { id, organizationId: actor.organizationId, deletedAt: null, ...ownerWhere(actor) },
     });
     if (!q) throw new NotFoundException('پیش‌فاکتور یافت نشد');
     if (!QUOTE_TRANSITIONS[q.status].includes(to)) {
@@ -397,7 +400,7 @@ export class QuotesService {
   /** New DRAFT version of a SENT/REJECTED quote; the old version becomes SUPERSEDED. */
   async revise(actor: AuthUser, id: string, ip?: string): Promise<QuoteDto> {
     const q = await this.prisma.quote.findFirst({
-      where: { id, organizationId: actor.organizationId, deletedAt: null },
+      where: { id, organizationId: actor.organizationId, deletedAt: null, ...ownerWhere(actor) },
       include: { items: { orderBy: { position: 'asc' } } },
     });
     if (!q) throw new NotFoundException('پیش‌فاکتور یافت نشد');
@@ -467,7 +470,7 @@ export class QuotesService {
 
   async remove(actor: AuthUser, id: string, ip?: string): Promise<void> {
     const q = await this.prisma.quote.findFirst({
-      where: { id, organizationId: actor.organizationId, deletedAt: null },
+      where: { id, organizationId: actor.organizationId, deletedAt: null, ...ownerWhere(actor) },
     });
     if (!q) throw new NotFoundException('پیش‌فاکتور یافت نشد');
     if (q.status !== 'DRAFT') {

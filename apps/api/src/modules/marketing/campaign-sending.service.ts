@@ -25,6 +25,7 @@ import {
 } from '@ishan/contracts';
 import { z } from 'zod';
 import type { AuthUser } from '../../common/decorators';
+import { ownerWhere } from '../../common/access-scope';
 import { RateLimiter } from '../../common/rate-limiter';
 import { APP_CONFIG, type AppConfig } from '../../config';
 import { PrismaService } from '../../infra/prisma.service';
@@ -66,7 +67,7 @@ export class CampaignSendingService {
 
   private async campaign(actor: AuthUser, id: string) {
     const c = await this.prisma.campaign.findFirst({
-      where: { id, organizationId: actor.organizationId, deletedAt: null },
+      where: { id, organizationId: actor.organizationId, deletedAt: null, ...ownerWhere(actor) },
       select: { id: true, status: true, name: true },
     });
     if (!c) throw new NotFoundException({ code: 'not_found', message: 'کمپین پیدا نشد.' });
@@ -155,14 +156,16 @@ export class CampaignSendingService {
 
   /** Everyone the audience reaches, minus suppressed addresses. Throws when it is over the limit. */
   async resolveAudience(
-    organizationId: string,
+    actor: Pick<AuthUser, 'organizationId' | 'scopeUserIds'>,
     audienceJson: unknown,
   ): Promise<{ recipients: Candidate[]; suppressed: number }> {
     const audience = CampaignAudienceSchema.parse(audienceJson);
     const customers = await this.prisma.customer.findMany({
       where: {
-        organizationId,
+        organizationId: actor.organizationId,
         deletedAt: null,
+        // A restricted user can only mail customers they are allowed to see.
+        ...ownerWhere(actor),
         ...(audience.kind ? { kind: audience.kind } : {}),
         ...(audience.tagIds.length > 0
           ? { tags: { some: { tagId: { in: audience.tagIds } } } }
@@ -198,7 +201,7 @@ export class CampaignSendingService {
     for (let i = 0; i < all.length; i += SUPPRESSION_CHUNK) {
       const rows = await this.prisma.marketingSuppression.findMany({
         where: {
-          organizationId,
+          organizationId: actor.organizationId,
           email: { in: all.slice(i, i + SUPPRESSION_CHUNK).map((c) => c.email) },
         },
         select: { email: true },
@@ -232,10 +235,7 @@ export class CampaignSendingService {
   async preview(actor: AuthUser, campaignId: string): Promise<CampaignPreviewDto> {
     if (!this.mailer.available) throw unavailable();
     const row = await this.draft(actor, campaignId);
-    const { recipients, suppressed } = await this.resolveAudience(
-      actor.organizationId,
-      row.audience,
-    );
+    const { recipients, suppressed } = await this.resolveAudience(actor, row.audience);
     const name = recipients[0]?.name ?? 'مشتری گرامی';
     return {
       recipients: recipients.length,
@@ -318,7 +318,7 @@ export class CampaignSendingService {
         });
       }
       const row = await tx.campaignSending.findUniqueOrThrow({ where: { campaignId } });
-      const { recipients } = await this.resolveAudience(actor.organizationId, row.audience);
+      const { recipients } = await this.resolveAudience(actor, row.audience);
       if (recipients.length !== input.expectedRecipients) {
         throw new ConflictException({
           code: 'recipients_changed',

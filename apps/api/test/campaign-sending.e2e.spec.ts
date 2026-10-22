@@ -151,6 +151,8 @@ describe.skipIf(!run)('campaign e-mail sending (database)', () => {
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
     prisma = app.get(PrismaService);
+    // These specs are about other features: let the sales role see the whole organization (row access has its own spec).
+    await prisma.role.updateMany({ where: { key: 'sales' }, data: { dataScope: 'ALL' } });
     const config = loadConfig(process.env);
     deps = { prisma, transport: createSmtpTransport(config), config };
     const hash = await app.get(PasswordService).hash(PASSWORD);
@@ -597,7 +599,10 @@ describe.skipIf(!run)('campaign e-mail sending (database)', () => {
       data: created.map((c: any) => ({ customerId: c.id, tagId: big.id })),
     });
     await expect(
-      svc.resolveAudience(orgId, { tagIds: [big.id], kind: null }),
+      svc.resolveAudience(
+        { organizationId: orgId, scopeUserIds: null },
+        { tagIds: [big.id], kind: null },
+      ),
     ).rejects.toMatchObject({
       response: { code: 'too_many_recipients' },
     });

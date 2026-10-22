@@ -20,6 +20,7 @@ import type {
 } from '@ishan/contracts';
 import { PERMISSIONS, checkActivityShape, normalizeText } from '@ishan/contracts';
 import type { AuthUser } from '../../common/decorators';
+import { activityScopeWhere, assertCanAssign, ownerWhere } from '../../common/access-scope';
 import { PrismaService } from '../../infra/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { activityInclude, activitySearchText, toActivityDto } from './mappers';
@@ -47,7 +48,10 @@ export class ActivitiesService {
     return {
       organizationId: actor.organizationId,
       deletedAt: null,
-      OR: [{ customerId: null }, { customer: { deletedAt: null } }],
+      AND: [
+        { OR: [{ customerId: null }, { customer: { deletedAt: null } }] },
+        activityScopeWhere(actor),
+      ],
     };
   }
 
@@ -107,7 +111,7 @@ export class ActivitiesService {
     }
     if (q.cursor) {
       const c = await this.prisma.activity.findFirst({
-        where: { id: q.cursor, organizationId: actor.organizationId },
+        where: { id: q.cursor, ...this.baseWhere(actor) },
         select: { id: true, dueAt: true },
       });
       if (!c) throw bad('INVALID_CURSOR', 'نشانگر صفحه‌بندی نامعتبر است');
@@ -190,7 +194,7 @@ export class ActivitiesService {
 
     if (dealId) {
       const d = await this.prisma.deal.findFirst({
-        where: { id: dealId, organizationId: org, deletedAt: null },
+        where: { id: dealId, organizationId: org, deletedAt: null, ...ownerWhere(actor) },
         select: { customerId: true },
       });
       if (!d) throw bad('INVALID_DEAL', 'فرصت فروش نامعتبر است');
@@ -201,7 +205,14 @@ export class ActivitiesService {
     }
     if (contactId) {
       const c = await this.prisma.contact.findFirst({
-        where: { id: contactId, organizationId: org, deletedAt: null },
+        where: {
+          id: contactId,
+          organizationId: org,
+          deletedAt: null,
+          ...(actor.scopeUserIds === null
+            ? {}
+            : { customer: { is: { deletedAt: null, ...ownerWhere(actor) } } }),
+        },
         select: { customerId: true },
       });
       if (!c) throw bad('INVALID_CONTACT', 'مخاطب نامعتبر است');
@@ -214,7 +225,7 @@ export class ActivitiesService {
     }
     if (customerId) {
       const c = await this.prisma.customer.findFirst({
-        where: { id: customerId, organizationId: org, deletedAt: null },
+        where: { id: customerId, organizationId: org, deletedAt: null, ...ownerWhere(actor) },
         select: { id: true },
       });
       if (!c) throw bad('INVALID_CUSTOMER', 'مشتری نامعتبر است');
@@ -224,6 +235,7 @@ export class ActivitiesService {
 
   private async assertAssignee(actor: AuthUser, id: string | null | undefined) {
     if (!id) return;
+    assertCanAssign(actor, id);
     const u = await this.prisma.user.findFirst({
       where: { id, organizationId: actor.organizationId, status: 'ACTIVE', deletedAt: null },
       select: { id: true },
@@ -437,7 +449,7 @@ export class ActivitiesService {
   async timeline(actor: AuthUser, customerId: string, q: TimelineQuery): Promise<TimelinePageDto> {
     const org = actor.organizationId;
     const customer = await this.prisma.customer.findFirst({
-      where: { id: customerId, organizationId: org, deletedAt: null },
+      where: { id: customerId, organizationId: org, deletedAt: null, ...ownerWhere(actor) },
       select: { id: true },
     });
     if (!customer) throw new NotFoundException('مشتری یافت نشد');
@@ -467,7 +479,7 @@ export class ActivitiesService {
     if (actor.permissions.includes(PERMISSIONS.DEALS_READ)) {
       const events = await this.prisma.dealStageEvent.findMany({
         where: {
-          deal: { customerId, organizationId: org, deletedAt: null },
+          deal: { customerId, organizationId: org, deletedAt: null, ...ownerWhere(actor) },
           ...(before ? { createdAt: { lt: before } } : {}),
         },
         include: { deal: { select: { id: true, title: true } } },

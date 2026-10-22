@@ -11,6 +11,12 @@ import type {
 } from '@ishan/contracts';
 import { normalizeText } from '@ishan/contracts';
 import type { AuthUser } from '../../common/decorators';
+import {
+  assertCanAssign,
+  assertVisible,
+  ownerWhere,
+  resolveOwner,
+} from '../../common/access-scope';
 import { PrismaService } from '../../infra/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import {
@@ -29,11 +35,12 @@ export class CustomersService {
     private readonly audit: AuditService,
   ) {}
 
-  buildWhere(orgId: string, q: Omit<CustomerListQuery, 'limit' | 'cursor'>) {
+  buildWhere(actor: AuthUser, q: Omit<CustomerListQuery, 'limit' | 'cursor'>) {
     const term = q.q ? normalizeText(q.q) : '';
     return {
-      organizationId: orgId,
+      organizationId: actor.organizationId,
       deletedAt: null,
+      ...ownerWhere(actor),
       ...(q.kind ? { kind: q.kind } : {}),
       ...(q.ownerId ? { ownerId: q.ownerId } : {}),
       ...(q.tagId ? { tags: { some: { tagId: q.tagId } } } : {}),
@@ -44,7 +51,7 @@ export class CustomersService {
   async list(actor: AuthUser, q: CustomerListQuery): Promise<Page<CustomerDto>> {
     const rows = await this.prisma.customer.findMany({
       where: {
-        ...this.buildWhere(actor.organizationId, q),
+        ...this.buildWhere(actor, q),
         ...(q.cursor ? { id: { lt: q.cursor } } : {}),
       },
       include: customerInclude,
@@ -57,7 +64,7 @@ export class CustomersService {
 
   async get(actor: AuthUser, id: string): Promise<CustomerDetailDto> {
     const c = await this.prisma.customer.findFirst({
-      where: { id, organizationId: actor.organizationId, deletedAt: null },
+      where: { id, organizationId: actor.organizationId, deletedAt: null, ...ownerWhere(actor) },
       include: {
         ...customerInclude,
         contacts: { where: { deletedAt: null }, orderBy: [{ isPrimary: 'desc' }, { id: 'asc' }] },
@@ -77,7 +84,8 @@ export class CustomersService {
   }
 
   async create(actor: AuthUser, dto: CreateCustomerRequest, ip?: string) {
-    await this.assertOwner(actor.organizationId, dto.ownerId);
+    const ownerId = resolveOwner(actor, dto.ownerId);
+    await this.assertOwner(actor.organizationId, ownerId);
     const created = await this.prisma.customer.create({
       data: {
         organizationId: actor.organizationId,
@@ -92,7 +100,7 @@ export class CustomersService {
         city: dto.city ?? null,
         address: dto.address ?? null,
         notes: dto.notes ?? null,
-        ownerId: dto.ownerId ?? actor.id,
+        ownerId: ownerId ?? actor.id,
         createdById: actor.id,
         searchText: customerSearchText(dto),
       },
@@ -116,11 +124,14 @@ export class CustomersService {
     ifMatch?: string,
   ) {
     const existing = await this.prisma.customer.findFirst({
-      where: { id, organizationId: actor.organizationId, deletedAt: null },
+      where: { id, organizationId: actor.organizationId, deletedAt: null, ...ownerWhere(actor) },
     });
     if (!existing) throw new NotFoundException('مشتری یافت نشد');
     assertIfMatch(ifMatch, existing.updatedAt);
-    if (dto.ownerId !== undefined) await this.assertOwner(actor.organizationId, dto.ownerId);
+    if (dto.ownerId !== undefined) {
+      assertCanAssign(actor, dto.ownerId);
+      await this.assertOwner(actor.organizationId, dto.ownerId);
+    }
 
     const next = {
       kind: dto.kind,
@@ -159,7 +170,7 @@ export class CustomersService {
 
   async remove(actor: AuthUser, id: string, ip?: string) {
     const existing = await this.prisma.customer.findFirst({
-      where: { id, organizationId: actor.organizationId, deletedAt: null },
+      where: { id, organizationId: actor.organizationId, deletedAt: null, ...ownerWhere(actor) },
       select: { id: true },
     });
     if (!existing) throw new NotFoundException('مشتری یافت نشد');
@@ -183,7 +194,7 @@ export class CustomersService {
 
   async setTags(actor: AuthUser, id: string, tagIds: string[], ip?: string) {
     const existing = await this.prisma.customer.findFirst({
-      where: { id, organizationId: actor.organizationId, deletedAt: null },
+      where: { id, organizationId: actor.organizationId, deletedAt: null, ...ownerWhere(actor) },
       select: { id: true },
     });
     if (!existing) throw new NotFoundException('مشتری یافت نشد');
@@ -220,6 +231,7 @@ export class CustomersService {
         where: {
           organizationId: actor.organizationId,
           deletedAt: null,
+          ...ownerWhere(actor),
           searchText: { contains: term },
         },
         select: { id: true, name: true, kind: true },
@@ -230,6 +242,10 @@ export class CustomersService {
         where: {
           organizationId: actor.organizationId,
           deletedAt: null,
+          // A contact is reached through its customer; standalone contacts belong to ALL only.
+          ...(actor.scopeUserIds === null
+            ? {}
+            : { customer: { is: { deletedAt: null, ...ownerWhere(actor) } } }),
           searchText: { contains: term },
         },
         select: { id: true, firstName: true, lastName: true, customerId: true },

@@ -3,6 +3,7 @@ import type { ContactDto, CreateContactRequest } from '@ishan/contracts';
 import type { z } from 'zod';
 import type { UpdateContactRequestSchema } from '@ishan/contracts';
 import type { AuthUser } from '../../common/decorators';
+import { ownerWhere } from '../../common/access-scope';
 import { PrismaService } from '../../infra/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { contactSearchText, nullify, toContactDto } from './mappers';
@@ -16,10 +17,22 @@ export class ContactsService {
 
   private async assertCustomer(actor: AuthUser, customerId: string) {
     const c = await this.prisma.customer.findFirst({
-      where: { id: customerId, organizationId: actor.organizationId, deletedAt: null },
+      where: {
+        id: customerId,
+        organizationId: actor.organizationId,
+        deletedAt: null,
+        ...ownerWhere(actor),
+      },
       select: { id: true },
     });
     if (!c) throw new NotFoundException('مشتری یافت نشد');
+  }
+
+  /** A contact is visible through its customer; standalone contacts only to unrestricted users. */
+  private contactScope(actor: AuthUser) {
+    return actor.scopeUserIds === null
+      ? {}
+      : { customer: { is: { deletedAt: null, ...ownerWhere(actor) } } };
   }
 
   async listForCustomer(actor: AuthUser, customerId: string): Promise<ContactDto[]> {
@@ -72,7 +85,12 @@ export class ContactsService {
     ip?: string,
   ) {
     const existing = await this.prisma.contact.findFirst({
-      where: { id, organizationId: actor.organizationId, deletedAt: null },
+      where: {
+        id,
+        organizationId: actor.organizationId,
+        deletedAt: null,
+        ...this.contactScope(actor),
+      },
     });
     if (!existing) throw new NotFoundException('مخاطب یافت نشد');
     const next = {
@@ -112,7 +130,12 @@ export class ContactsService {
 
   async remove(actor: AuthUser, id: string, ip?: string) {
     const existing = await this.prisma.contact.findFirst({
-      where: { id, organizationId: actor.organizationId, deletedAt: null },
+      where: {
+        id,
+        organizationId: actor.organizationId,
+        deletedAt: null,
+        ...this.contactScope(actor),
+      },
       select: { id: true },
     });
     if (!existing) throw new NotFoundException('مخاطب یافت نشد');
