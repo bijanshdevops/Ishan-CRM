@@ -50,6 +50,22 @@ export class UsersService {
     return { items, nextCursor: rows.length > query.limit ? (items.at(-1)?.id ?? null) : null };
   }
 
+  /** Active users inside the actor's data scope (everyone for ALL), id and name only. */
+  async assignable(actor: AuthUser): Promise<{ items: Array<{ id: string; name: string }> }> {
+    const items = await this.prisma.user.findMany({
+      where: {
+        organizationId: actor.organizationId,
+        deletedAt: null,
+        status: 'ACTIVE',
+        ...(actor.scopeUserIds === null ? {} : { id: { in: actor.scopeUserIds } }),
+      },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+      take: 500,
+    });
+    return { items };
+  }
+
   async get(actor: AuthUser, id: string): Promise<UserDto> {
     const row = await this.prisma.user.findFirst({
       where: { id, organizationId: actor.organizationId, deletedAt: null },

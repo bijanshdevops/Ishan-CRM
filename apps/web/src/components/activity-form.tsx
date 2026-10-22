@@ -10,7 +10,6 @@ import {
   type CustomerDetailDto,
   type DealDto,
   type Page,
-  type UserDto,
 } from '@ishan/contracts';
 import { fa, formatJalaliDateTime, instantToJalali, jalaliToInstant } from '@ishan/i18n';
 import { api, ApiClientError } from '@/lib/api';
@@ -92,9 +91,8 @@ export function ActivityFormDialog({
     (editing ? activity.status === 'DONE' : f.logPast);
 
   const users = useQuery({
-    queryKey: ['users', 'owners'],
-    enabled: can(PERMISSIONS.USERS_READ),
-    queryFn: () => api<Page<UserDto>>('/users?limit=100'),
+    queryKey: ['users', 'assignable'],
+    queryFn: () => api<{ items: Array<{ id: string; name: string }> }>('/users/assignable'),
   });
   const customer = useQuery({
     queryKey: ['customer', f.customerId],
@@ -325,7 +323,7 @@ export function ActivityFormDialog({
           </div>
         ) : null}
 
-        {!isNote && can(PERMISSIONS.USERS_READ) ? (
+        {!isNote ? (
           <Field label={fa.activities.assignee}>
             {(p) => (
               <Select
@@ -334,13 +332,11 @@ export function ActivityFormDialog({
                 onChange={(e) => set('assigneeId', e.target.value)}
               >
                 <option value="">{fa.activities.unassigned}</option>
-                {users.data?.items
-                  .filter((u) => u.status === 'ACTIVE')
-                  .map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name}
-                    </option>
-                  ))}
+                {users.data?.items.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name}
+                  </option>
+                ))}
               </Select>
             )}
           </Field>

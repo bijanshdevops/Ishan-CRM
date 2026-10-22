@@ -210,7 +210,6 @@ export default function CustomersPage() {
       </Card>
       {creating ? (
         <CustomerFormDialog
-          canListUsers={can(PERMISSIONS.USERS_READ)}
           onClose={() => setCreating(false)}
           onSaved={(id) => router.push(`/customers/${id}`)}
         />
