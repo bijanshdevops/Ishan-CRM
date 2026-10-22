@@ -31,7 +31,8 @@ import {
   Public,
   type AuthUser,
 } from '../../common/decorators';
-import { RateLimiter } from '../../common/rate-limiter';
+import { createHash } from 'node:crypto';
+import { RateLimitService } from '../../infra/rate-limit.service';
 import { ZodValidationPipe } from '../../common/zod.pipe';
 import { Inject } from '@nestjs/common';
 import { APP_CONFIG, type AppConfig } from '../../config';
@@ -41,15 +42,18 @@ import { SessionService } from './session.service';
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  private readonly loginLimiter: RateLimiter;
   private readonly secure: boolean;
+  private readonly perIp: number;
+  private readonly perAccount: number;
 
   constructor(
     private readonly auth: AuthService,
     private readonly sessions: SessionService,
+    private readonly limits: RateLimitService,
     @Inject(APP_CONFIG) config: AppConfig,
   ) {
-    this.loginLimiter = new RateLimiter(config.LOGIN_RATE_LIMIT_PER_MINUTE, 60_000);
+    this.perIp = config.LOGIN_RATE_LIMIT_PER_MINUTE;
+    this.perAccount = config.LOGIN_RATE_LIMIT_PER_ACCOUNT_PER_MINUTE;
     this.secure = config.COOKIE_SECURE ?? config.NODE_ENV === 'production';
   }
 
@@ -65,7 +69,13 @@ export class AuthController {
     @Req() req: FastifyRequest,
     @Res({ passthrough: true }) reply: FastifyReply,
   ) {
-    if (!this.loginLimiter.allow(req.ip)) {
+    // Both counters always tick, so neither can be skipped by tripping the other first.
+    const email = createHash('sha256').update(body.email.trim().toLowerCase()).digest('hex');
+    const [ipOk, accountOk] = await Promise.all([
+      this.limits.allow(`login:ip:${req.ip}`, this.perIp, 60_000),
+      this.limits.allow(`login:acct:${email}`, this.perAccount, 60_000),
+    ]);
+    if (!ipOk || !accountOk) {
       throw new HttpException(
         { code: 'RATE_LIMITED', message: 'تعداد تلاش‌ها زیاد است؛ کمی بعد دوباره امتحان کنید' },
         HttpStatus.TOO_MANY_REQUESTS,
