@@ -22,7 +22,12 @@ import {
 } from '@ishan/contracts';
 import type { FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { CurrentUser, RequirePermission, type AuthUser } from '../../common/decorators';
+import {
+  AuthenticatedOnly,
+  CurrentUser,
+  RequirePermission,
+  type AuthUser,
+} from '../../common/decorators';
 import { ZodValidationPipe } from '../../common/zod.pipe';
 import { UsersService } from './users.service';
 
@@ -38,6 +43,13 @@ export class UsersController {
     @Query(new ZodValidationPipe(ListQuerySchema)) q: ListQuery,
   ) {
     return this.users.list(actor, q);
+  }
+
+  /** Who the signed-in user may hand records to (their data scope); names only, for owner pickers. */
+  @Get('assignable')
+  @AuthenticatedOnly()
+  assignable(@CurrentUser() actor: AuthUser) {
+    return this.users.assignable(actor);
   }
 
   @Get(':id')

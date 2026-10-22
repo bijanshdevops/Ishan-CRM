@@ -2,13 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import {
-  CreateCustomerRequestSchema,
-  type CustomerDto,
-  type CustomerKind,
-  type Page,
-  type UserDto,
-} from '@ishan/contracts';
+import { CreateCustomerRequestSchema, type CustomerDto, type CustomerKind } from '@ishan/contracts';
 import { fa } from '@ishan/i18n';
 import { ApiClientError, api } from '@/lib/api';
 import { useToast } from './toast';
@@ -16,21 +10,18 @@ import { Button, ErrorBanner, Field, Input, Modal, Select } from './ui';
 
 export function CustomerFormDialog({
   customer,
-  canListUsers,
   onClose,
   onSaved,
 }: {
   customer?: CustomerDto;
-  canListUsers: boolean;
   onClose: () => void;
   onSaved: (id: string) => void;
 }) {
   const qc = useQueryClient();
   const toast = useToast();
   const users = useQuery({
-    queryKey: ['users', 'owners'],
-    enabled: canListUsers,
-    queryFn: () => api<Page<UserDto>>('/users?limit=100'),
+    queryKey: ['users', 'assignable'],
+    queryFn: () => api<{ items: Array<{ id: string; name: string }> }>('/users/assignable'),
   });
   const [f, setF] = useState({
     kind: (customer?.kind ?? 'PERSON') as CustomerKind,
@@ -131,22 +122,20 @@ export function CustomerFormDialog({
         <Field label={fa.customers.city}>
           {(p) => <Input {...p} value={f.city} onChange={set('city')} />}
         </Field>
-        {canListUsers ? (
+        {
           <Field label={fa.customers.owner}>
             {(p) => (
               <Select {...p} value={f.ownerId} onChange={set('ownerId')}>
                 <option value="">—</option>
-                {users.data?.items
-                  .filter((u) => u.status === 'ACTIVE')
-                  .map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name}
-                    </option>
-                  ))}
+                {users.data?.items.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name}
+                  </option>
+                ))}
               </Select>
             )}
           </Field>
-        ) : null}
+        }
         <div className="sm:col-span-2">
           <Field label={fa.customers.address}>
             {(p) => <Input {...p} value={f.address} onChange={set('address')} />}

@@ -497,6 +497,30 @@ test.describe.serial('Ishan CRM end-to-end', () => {
     await expect(page.getByText(fa.dashboard.exported)).toBeVisible();
   });
 
+  test('roles: the record scope is set on a new role and changed later; admin stays locked', async ({
+    page,
+  }) => {
+    await loginAdmin(page);
+    await page.goto('/roles');
+    await expect(page.getByRole('heading', { name: fa.roles.title })).toBeVisible();
+    await expect(page.getByText(fa.roles.scopeAdminLocked)).toBeVisible();
+    await page.getByRole('button', { name: fa.roles.add }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByLabel(fa.common.name, { exact: true }).fill(`دامنه ${run}`);
+    await dialog.getByLabel(fa.roles.key, { exact: true }).fill(`scope-${run}`);
+    await dialog.getByLabel(fa.roles.scope).selectOption('OWN');
+    await dialog.getByRole('button', { name: fa.common.create }).click();
+    await expect(page.getByText(fa.roles.created)).toBeVisible();
+    const card = page
+      .locator('section, article, div')
+      .filter({ hasText: `دامنه ${run}` })
+      .last();
+    await expect(card.getByLabel(fa.roles.scope)).toHaveValue('OWN');
+    await card.getByLabel(fa.roles.scope).selectOption('TEAM');
+    await expect(page.getByText(fa.roles.scopeSaved)).toBeVisible();
+    await a11y(page, 'roles');
+  });
+
   test('admin can open users and the audit log, then log out', async ({ page }) => {
     await loginAdmin(page);
     await page.goto('/users');

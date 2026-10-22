@@ -229,6 +229,16 @@ describe.skipIf(!run)('row-level access (database)', () => {
     expect((await call('GET', `/customers/${customerA}`, 'ra-c')).status).toBe(200);
   });
 
+  it('owner pickers list only the users the actor may assign to', async () => {
+    const names = async (who: string) =>
+      (await call('GET', '/users/assignable', who)).body.items.map((u: any) => u.id) as string[];
+    const a = await names('ra-a');
+    expect(a).toEqual(expect.arrayContaining([ids['ra-a'], ids['ra-b']]));
+    expect(a).not.toContain(ids['ra-c']);
+    expect(await names('ra-own')).toEqual([ids['ra-own']]);
+    expect(await names('ra-admin')).toEqual(expect.arrayContaining(Object.values(ids)));
+  });
+
   it('dashboard and reports count only visible records', async () => {
     const own = await call('GET', '/dashboard?scope=me', 'ra-c');
     const a = await call('GET', '/dashboard?scope=me', 'ra-b');

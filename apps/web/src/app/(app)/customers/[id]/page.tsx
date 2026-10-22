@@ -259,7 +259,6 @@ export default function CustomerPage() {
       {editing ? (
         <CustomerFormDialog
           customer={c}
-          canListUsers={can(PERMISSIONS.USERS_READ)}
           onClose={() => setEditing(false)}
           onSaved={() => setEditing(false)}
         />

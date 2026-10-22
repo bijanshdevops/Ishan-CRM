@@ -2,7 +2,12 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { CreateRoleRequestSchema, PERMISSIONS } from '@ishan/contracts';
+import {
+  CreateRoleRequestSchema,
+  DATA_SCOPES,
+  PERMISSIONS,
+  type DataScope,
+} from '@ishan/contracts';
 import { PERMISSION_LABELS, fa, formatNumber } from '@ishan/i18n';
 import { useToast } from '@/components/toast';
 import {
@@ -14,6 +19,7 @@ import {
   Input,
   Modal,
   PageHeader,
+  Select,
   Skeleton,
 } from '@/components/ui';
 import { ApiClientError, api } from '@/lib/api';
@@ -26,8 +32,15 @@ interface RoleRow {
   description: string | null;
   isSystem: boolean;
   permissions: string[];
+  dataScope: DataScope;
   userCount: number;
 }
+
+const SCOPE_LABELS: Record<DataScope, string> = {
+  ALL: fa.roles.scopeAll,
+  TEAM: fa.roles.scopeTeam,
+  OWN: fa.roles.scopeOwn,
+};
 
 export default function RolesPage() {
   const { can } = useAuth();
@@ -39,6 +52,7 @@ export default function RolesPage() {
   const [key, setKey] = useState('');
   const [name, setName] = useState('');
   const [selected, setSelected] = useState<string[]>([]);
+  const [dataScope, setDataScope] = useState<DataScope>('TEAM');
 
   const roles = useQuery({ queryKey: ['roles', 'full'], queryFn: () => api<RoleRow[]>('/roles') });
   const catalog = useQuery({
@@ -48,7 +62,12 @@ export default function RolesPage() {
 
   const create = useMutation({
     mutationFn: () => {
-      const parsed = CreateRoleRequestSchema.safeParse({ key, name, permissions: selected });
+      const parsed = CreateRoleRequestSchema.safeParse({
+        key,
+        name,
+        permissions: selected,
+        dataScope,
+      });
       if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? fa.common.error);
       return api('/roles', { method: 'POST', body: parsed.data });
     },
@@ -59,9 +78,19 @@ export default function RolesPage() {
       setKey('');
       setName('');
       setSelected([]);
+      setDataScope('TEAM');
     },
     onError: (e) =>
       setError(e instanceof ApiClientError || e instanceof Error ? e.message : fa.common.error),
+  });
+  const changeScope = useMutation({
+    mutationFn: (v: { id: string; dataScope: DataScope }) =>
+      api(`/roles/${v.id}`, { method: 'PATCH', body: { dataScope: v.dataScope } }),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ['roles'] });
+      toast(fa.roles.scopeSaved);
+    },
+    onError: (e) => toast(e instanceof ApiClientError ? e.message : fa.common.error, 'error'),
   });
   const remove = useMutation({
     mutationFn: (id: string) => api(`/roles/${id}`, { method: 'DELETE' }),
@@ -117,6 +146,37 @@ export default function RolesPage() {
                   <li className="text-sm text-[var(--color-text-muted)]">{fa.home.noAccess}</li>
                 )}
               </ul>
+              {canWrite && r.key !== 'admin' ? (
+                <div className="mb-3">
+                  <Field label={fa.roles.scope}>
+                    {(p) => (
+                      <Select
+                        {...p}
+                        value={r.dataScope}
+                        disabled={changeScope.isPending}
+                        onChange={(e) =>
+                          changeScope.mutate({ id: r.id, dataScope: e.target.value as DataScope })
+                        }
+                      >
+                        {DATA_SCOPES.map((s) => (
+                          <option key={s} value={s}>
+                            {SCOPE_LABELS[s]}
+                          </option>
+                        ))}
+                      </Select>
+                    )}
+                  </Field>
+                </div>
+              ) : (
+                <p className="mb-3 text-sm">
+                  {fa.roles.scope}: {SCOPE_LABELS[r.dataScope]}
+                  {r.key === 'admin' ? (
+                    <span className="block text-[var(--color-text-muted)]">
+                      {fa.roles.scopeAdminLocked}
+                    </span>
+                  ) : null}
+                </p>
+              )}
               <p className="text-sm text-[var(--color-text-muted)]">
                 {fa.roles.users}: {formatNumber(r.userCount)}
               </p>
@@ -142,6 +202,21 @@ export default function RolesPage() {
             <Field label={fa.roles.key} hint={fa.roles.keyHint}>
               {(p) => (
                 <Input {...p} dir="ltr" value={key} onChange={(e) => setKey(e.target.value)} />
+              )}
+            </Field>
+            <Field label={fa.roles.scope} hint={fa.roles.scopeHint}>
+              {(p) => (
+                <Select
+                  {...p}
+                  value={dataScope}
+                  onChange={(e) => setDataScope(e.target.value as DataScope)}
+                >
+                  {DATA_SCOPES.map((s) => (
+                    <option key={s} value={s}>
+                      {SCOPE_LABELS[s]}
+                    </option>
+                  ))}
+                </Select>
               )}
             </Field>
             <fieldset className="flex flex-col gap-2">
