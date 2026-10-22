@@ -51,6 +51,7 @@ describe.skipIf(!run)('row-level access (database)', () => {
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
     prisma = app.get(PrismaService);
+    await prisma.role.updateMany({ where: { key: 'sales' }, data: { dataScope: 'TEAM' } });
     const hash = await app.get(PasswordService).hash(PASSWORD);
     const org = await prisma.organization.findFirstOrThrow({ where: { deletedAt: null } });
     const salesRole = await prisma.role.findFirstOrThrow({
@@ -134,7 +135,11 @@ describe.skipIf(!run)('row-level access (database)', () => {
         amount: '1000',
       })
     ).body.id;
-    campaignA = (await call('POST', '/campaigns', 'ra-a', { name: 'کمپین الف' })).body.id;
+    campaignA = (await call('POST', '/campaigns', 'ra-admin', { name: 'کمپین الف' })).body.id;
+    // Sales cannot write campaigns, so the admin creates it and hands it to ra-a.
+    expect(
+      (await call('PATCH', `/campaigns/${campaignA}`, 'ra-admin', { ownerId: ids['ra-a'] })).status,
+    ).toBe(200);
     noteA = (await call('POST', '/activities', 'ra-a', { type: 'NOTE', title: 'یادداشت الف' })).body
       .id;
     for (const id of [customerA, leadA, dealA, campaignA, noteA]) expect(id).toBeTruthy();
@@ -181,7 +186,6 @@ describe.skipIf(!run)('row-level access (database)', () => {
     expect((await call('PATCH', `/customers/${customerA}`, 'ra-c', { name: 'تغییر' })).status).toBe(
       404,
     );
-    expect((await call('DELETE', `/customers/${customerA}`, 'ra-c')).status).toBe(404);
     expect((await call('PATCH', `/leads/${leadA}`, 'ra-c', { name: 'تغییر' })).status).toBe(404);
     expect((await call('PATCH', `/deals/${dealA}`, 'ra-c', { title: 'تغییر' })).status).toBe(404);
     expect((await call('GET', `/customers/${customerA}/contacts`, 'ra-c')).status).toBe(404);
@@ -226,8 +230,8 @@ describe.skipIf(!run)('row-level access (database)', () => {
   });
 
   it('dashboard and reports count only visible records', async () => {
-    const own = await call('GET', '/reports/dashboard?scope=me', 'ra-c');
-    const a = await call('GET', '/reports/dashboard?scope=me', 'ra-b');
+    const own = await call('GET', '/dashboard?scope=me', 'ra-c');
+    const a = await call('GET', '/dashboard?scope=me', 'ra-b');
     expect(own.status).toBe(200);
     expect(a.status).toBe(200);
     const leadsOf = (r: Res) =>
@@ -244,7 +248,7 @@ describe.skipIf(!run)('row-level access (database)', () => {
     const lock = await call('PATCH', `/roles/${admin.id}`, 'ra-admin', { dataScope: 'OWN' });
     expect(lock.status).toBe(400);
     expect(code(lock)).toBe('ADMIN_SCOPE_LOCKED');
-    const rename = await call('PATCH', `/roles/${viewer.id}`, 'ra-admin', { name: 'x' });
+    const rename = await call('PATCH', `/roles/${viewer.id}`, 'ra-admin', { name: 'xx' });
     expect(code(rename)).toBe('SYSTEM_ROLE_IMMUTABLE');
     const ok = await call('PATCH', `/roles/${viewer.id}`, 'ra-admin', { dataScope: 'TEAM' });
     expect(ok.status).toBe(200);

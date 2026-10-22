@@ -151,6 +151,8 @@ describe.skipIf(!run)('campaign e-mail sending (database)', () => {
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
     prisma = app.get(PrismaService);
+    // These specs are about other features: let the sales role see the whole organization (row access has its own spec).
+    await prisma.role.updateMany({ where: { key: 'sales' }, data: { dataScope: 'ALL' } });
     const config = loadConfig(process.env);
     deps = { prisma, transport: createSmtpTransport(config), config };
     const hash = await app.get(PasswordService).hash(PASSWORD);

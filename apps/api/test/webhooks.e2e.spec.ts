@@ -142,6 +142,8 @@ describe.skipIf(!run)('webhooks (database)', () => {
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
     prisma = app.get(PrismaService);
+    // These specs are about other features: let the sales role see the whole organization (row access has its own spec).
+    await prisma.role.updateMany({ where: { key: 'sales' }, data: { dataScope: 'ALL' } });
     deps = {
       prisma,
       crypto: app.get(CryptoService),
