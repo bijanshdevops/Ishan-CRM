@@ -1,3 +1,4 @@
+import { assertIfMatch, assertWritten, casWhere } from '../../common/etag';
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import type {
   CreateLeadSourceRequest,
@@ -53,17 +54,26 @@ export class LeadSourcesService {
     }
   }
 
-  async update(actor: AuthUser, id: string, dto: UpdateLeadSourceRequest, ip?: string) {
+  async update(
+    actor: AuthUser,
+    id: string,
+    dto: UpdateLeadSourceRequest,
+    ip?: string,
+    ifMatch?: string,
+  ) {
     const existing = await this.prisma.leadSource.findFirst({
       where: { id, organizationId: actor.organizationId },
-      select: { id: true },
+      select: { id: true, updatedAt: true },
     });
     if (!existing) throw new NotFoundException('منبع سرنخ یافت نشد');
+    assertIfMatch(ifMatch, existing.updatedAt);
     try {
-      const s = await this.prisma.leadSource.update({
-        where: { id },
+      const written = await this.prisma.leadSource.updateMany({
+        where: casWhere(id, ifMatch, existing.updatedAt),
         data: { name: dto.name, active: dto.active },
       });
+      assertWritten(written.count, ifMatch, new NotFoundException('منبع سرنخ یافت نشد'));
+      const s = await this.prisma.leadSource.findUniqueOrThrow({ where: { id } });
       await this.audit.record({
         organizationId: actor.organizationId,
         actorId: actor.id,

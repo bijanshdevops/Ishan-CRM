@@ -22,11 +22,11 @@ type CustomerRow = {
   createdAt: Date;
   updatedAt: Date;
   owner: { id: string; name: string } | null;
-  tags: Array<{ tag: { id: string; name: string; color: string } }>;
+  tags: Array<{ tag: { id: string; name: string; color: string; updatedAt: Date } }>;
 };
 
-export function toTagDto(t: { id: string; name: string; color: string }): TagDto {
-  return { id: t.id, name: t.name, color: t.color };
+export function toTagDto(t: { id: string; name: string; color: string; updatedAt: Date }): TagDto {
+  return { id: t.id, name: t.name, color: t.color, updatedAt: t.updatedAt.toISOString() };
 }
 
 export function toCustomerDto(c: CustomerRow): CustomerDto {

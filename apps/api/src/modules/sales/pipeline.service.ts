@@ -1,3 +1,4 @@
+import { assertIfMatch, assertWritten, casWhere } from '../../common/etag';
 import {
   BadRequestException,
   ConflictException,
@@ -75,8 +76,10 @@ export class PipelineService {
     id: string,
     dto: { name?: string; probability?: number; kind?: 'OPEN' | 'WON' | 'LOST' },
     ip?: string,
+    ifMatch?: string,
   ) {
     const stage = await this.find(actor, id);
+    assertIfMatch(ifMatch, stage.updatedAt);
     if (dto.name) await this.assertNameFree(actor.organizationId, dto.name, id);
     if (dto.kind && dto.kind !== stage.kind && stage.kind === 'OPEN') {
       const openLeft = await this.prisma.pipelineStage.count({
@@ -89,7 +92,12 @@ export class PipelineService {
         });
       }
     }
-    const updated = await this.prisma.pipelineStage.update({ where: { id }, data: dto });
+    const written = await this.prisma.pipelineStage.updateMany({
+      where: casWhere(id, ifMatch, stage.updatedAt),
+      data: dto,
+    });
+    assertWritten(written.count, ifMatch, new NotFoundException('مرحله یافت نشد'));
+    const updated = await this.prisma.pipelineStage.findUniqueOrThrow({ where: { id } });
     await this.audit.record({
       organizationId: actor.organizationId,
       actorId: actor.id,

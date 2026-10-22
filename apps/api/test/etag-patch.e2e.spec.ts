@@ -87,6 +87,9 @@ describe.skipIf(!run)('If-Match on PATCH (database)', () => {
       await prisma.customer.deleteMany({ where: { createdById: { in: created.users } } });
       await prisma.product.deleteMany({ where: { name: { startsWith: 'etag-' } } });
       await prisma.team.deleteMany({ where: { name: { startsWith: 'etag-' } } });
+      await prisma.tag.deleteMany({ where: { name: { startsWith: 'etag-' } } });
+      await prisma.leadSource.deleteMany({ where: { name: { startsWith: 'etag-' } } });
+      await prisma.pipelineStage.deleteMany({ where: { name: { startsWith: 'etag-' } } });
       await prisma.role.deleteMany({ where: { id: { in: created.roles } } });
       await prisma.user.deleteMany({ where: { id: { in: created.users } } });
     }
@@ -145,6 +148,35 @@ describe.skipIf(!run)('If-Match on PATCH (database)', () => {
       path: (id) => `/teams/${id}`,
       change: { description: 'الف' },
       other: { description: 'ب' },
+    },
+    {
+      name: 'tags',
+      make: async () =>
+        (await call('POST', '/tags', { name: `etag-tag-${Date.now()}`, color: '#112233' })).body,
+      path: (id) => `/tags/${id}`,
+      change: { color: '#445566' },
+      other: { color: '#778899' },
+    },
+    {
+      name: 'lead sources',
+      make: async () =>
+        (await call('POST', '/lead-sources', { name: `etag-src-${Date.now()}` })).body,
+      path: (id) => `/lead-sources/${id}`,
+      change: { active: false },
+      other: { active: true },
+    },
+    {
+      name: 'pipeline stages',
+      make: async () =>
+        (
+          await call('POST', '/pipeline/stages', {
+            name: `etag-stage-${Date.now()}`,
+            probability: 5,
+          })
+        ).body,
+      path: (id) => `/pipeline/stages/${id}`,
+      change: { probability: 15 },
+      other: { probability: 25 },
     },
     {
       name: 'users',

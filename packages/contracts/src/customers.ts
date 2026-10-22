@@ -142,6 +142,7 @@ export interface TagDto {
   id: string;
   name: string;
   color: string;
+  updatedAt: string;
 }
 
 export interface ContactDto {

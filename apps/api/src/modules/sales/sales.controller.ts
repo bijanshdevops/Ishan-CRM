@@ -223,8 +223,9 @@ export class PipelineController {
     @Body(new ZodValidationPipe(UpdateStageRequestSchema))
     body: Infer<typeof UpdateStageRequestSchema>,
     @Req() req: FastifyRequest,
+    @Headers('if-match') ifMatch: string | undefined,
   ) {
-    return this.pipeline.update(actor, id, body, req.ip);
+    return this.pipeline.update(actor, id, body, req.ip, ifMatch);
   }
 
   @Delete(':id')

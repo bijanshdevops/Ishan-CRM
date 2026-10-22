@@ -27,6 +27,7 @@ export interface LeadSourceDto {
   id: string;
   name: string;
   active: boolean;
+  updatedAt: string;
 }
 
 /** Sources every new organization starts with (configuration, editable by admins). */
