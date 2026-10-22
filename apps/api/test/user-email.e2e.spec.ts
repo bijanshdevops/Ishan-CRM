@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { applyTestEnv } from './helpers';
 
 /** Admin edits a user's e-mail (ADR 0020). Real PostgreSQL (CI). */
@@ -23,6 +23,8 @@ describe.skipIf(!run)('admin edits a user e-mail (database)', () => {
   let viewerRoleId = '';
   const userIds: string[] = [];
   let passwordHash = '';
+  let mailer: any;
+  let sent: any[] = [];
 
   async function call(
     method: 'GET' | 'POST' | 'PATCH',
@@ -83,6 +85,8 @@ describe.skipIf(!run)('admin edits a user e-mail (database)', () => {
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
     prisma = app.get(PrismaService);
+    const { MailerService } = await import('../src/modules/notifications/mailer.service');
+    mailer = app.get(MailerService);
     passwordHash = await app.get(PasswordService).hash(PASSWORD);
     const org = await prisma.organization.findFirstOrThrow({ where: { deletedAt: null } });
     orgId = org.id;
@@ -150,6 +154,40 @@ describe.skipIf(!run)('admin edits a user e-mail (database)', () => {
     });
     expect(audit.actorId).toBe(userIds[0]);
     expect(audit.metadata).toEqual({ from: 'ue-target@example.com', to: 'ue-moved@example.com' });
+  });
+
+  it('tells the previous address, masked and without a link; never fails or blocks the change', async () => {
+    vi.spyOn(mailer, 'available', 'get').mockReturnValue(true);
+    const send = vi.spyOn(mailer, 'send').mockImplementation(async (m: any) => {
+      sent.push(m);
+    });
+    sent = [];
+    const u = await makeUser('ue-notice', true);
+    const ok = await call('PATCH', `/users/${u.id}`, adminCookie, {
+      email: 'ue-notice-new@example.com',
+    });
+    expect(ok.status).toBe(200);
+    expect(sent).toHaveLength(1);
+    expect(sent[0].to).toBe('ue-notice@example.com');
+    expect(`${sent[0].text}${sent[0].html}`).not.toContain('ue-notice-new');
+    expect(sent[0].text).toContain('u***@example.com');
+
+    // A failing mail channel must not undo or fail the change.
+    send.mockRejectedValue(new Error('smtp down'));
+    const again = await call('PATCH', `/users/${u.id}`, adminCookie, {
+      email: 'ue-notice-newer@example.com',
+    });
+    expect(again.status).toBe(200);
+    expect(again.body.email).toBe('ue-notice-newer@example.com');
+
+    // Nothing is sent when the address does not change, or when there is no mail channel.
+    send.mockClear();
+    await call('PATCH', `/users/${u.id}`, adminCookie, { name: 'نام دیگر' });
+    expect(send).not.toHaveBeenCalled();
+    vi.spyOn(mailer, 'available', 'get').mockReturnValue(false);
+    await call('PATCH', `/users/${u.id}`, adminCookie, { email: 'ue-notice-last@example.com' });
+    expect(send).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
   });
 
   it('refuses an address that is already taken and changes nothing', async () => {
