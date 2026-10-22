@@ -1,0 +1,3 @@
+# Accepted findings, one CVE per line, each with a reason and a review date.
+# Format:  CVE-YYYY-NNNN   # reason (who, until when)
+# An empty list is the goal: prefer upgrading the package or the base image.

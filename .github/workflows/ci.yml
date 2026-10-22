@@ -141,6 +141,56 @@ jobs:
           gh api repos/${{ github.repository }}/commits/${{ github.sha }}/comments -F body=@/tmp/body.md > /dev/null
           exit 1
 
+  supply-chain:
+    name: supply-chain (SBOM + Trivy)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TRIVY: aquasec/trivy:0.58.1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the production images
+        run: |
+          docker build -f apps/api/Dockerfile --target runner -t ishan-api:ci .
+          docker build -f apps/web/Dockerfile \
+            --build-arg NEXT_PUBLIC_API_URL=/api/v1 --build-arg API_INTERNAL_URL=http://api:4000 \
+            -t ishan-web:ci .
+      - name: SBOM (CycloneDX) for each image
+        run: |
+          mkdir -p sbom
+          for img in api web; do
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD/sbom:/out" $TRIVY \
+              image --quiet --format cyclonedx --output /out/ishan-$img.cdx.json ishan-$img:ci
+          done
+          ls -l sbom
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ github.sha }}
+          path: sbom/*.cdx.json
+          retention-days: 90
+      - name: Scan the images (fixable HIGH/CRITICAL fail; posts the findings as a commit comment on failure)
+        run: |
+          set +e
+          mkdir -p scan
+          fail=0
+          for img in api web; do
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD:/work" $TRIVY \
+              image --quiet --severity HIGH,CRITICAL --ignore-unfixed --ignorefile /work/.trivyignore \
+              --exit-code 1 --format json --output /work/scan/$img.json ishan-$img:ci
+            [ $? -ne 0 ] && fail=1
+          done
+          if [ $fail -ne 0 ]; then
+            { echo '### Trivy found fixable HIGH/CRITICAL vulnerabilities'; echo '```'; \
+              for img in api web; do jq -r --arg i $img '.Results[]? | .Target as $t | .Vulnerabilities[]? | "\($i) \($t) \(.VulnerabilityID) \(.Severity) \(.PkgName) \(.InstalledVersion) -> \(.FixedVersion)"' scan/$img.json; done | sort -u | head -80; \
+              echo '```'; } > /tmp/body.md
+            gh api repos/${{ github.repository }}/commits/${{ github.sha }}/comments -F body=@/tmp/body.md > /dev/null
+            # Pull-request runs cannot comment (read-only token); annotations are readable everywhere.
+            echo "::error title=trivy findings::$(sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g' /tmp/body.md | cut -c1-3000)"
+          fi
+          exit $fail
+
   e2e:
     name: e2e (docker compose + Playwright)
     runs-on: ubuntu-latest
