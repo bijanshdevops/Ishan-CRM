@@ -57,6 +57,26 @@ const EnvSchema = z.object({
         .map((s) => s.trim())
         .filter(Boolean),
     ),
+  /**
+   * Which proxies may set X-Forwarded-For (ADR 0023): `true`, `false`, hop count, or comma-separated CIDRs.
+   * Required in production so IP-keyed rate limits cannot be dodged with a forged header.
+   */
+  TRUST_PROXY: z
+    .string()
+    .optional()
+    .transform((v): boolean | number | string | undefined => {
+      if (v === undefined || v.trim() === '') return undefined;
+      const t = v.trim();
+      if (t === 'true') return true;
+      if (t === 'false') return false;
+      if (/^\d+$/.test(t)) return Number(t);
+      return t;
+    }),
+  /** Escape hatch used only by deploy/compose.dev.yml, which runs production mode with public dev secrets. */
+  ALLOW_DEV_SECRETS: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
   APP_VERSION: z.string().default('0.1.0'),
   /** Base64-encoded 32-byte key (AES-256-GCM) for secrets at rest, e.g. TOTP seeds. */
   ENCRYPTION_KEY: z
@@ -83,7 +103,34 @@ const EnvSchema = z.object({
   BOOTSTRAP_ADMIN_PASSWORD: z.string().min(12).optional(),
 });
 
+/** Values shipped in deploy/compose.dev.yml; they are public, so production must never run with them. */
+const DEV_ENCRYPTION_KEY = 'ZGV2LW9ubHktZW5jcnlwdGlvbi1rZXktMzItYnl0ZXM=';
+const DEV_ADMIN_PASSWORD = 'ChangeMe-Dev-2026!';
+
 const checked = EnvSchema.superRefine((c, ctx) => {
+  if (c.NODE_ENV === 'production') {
+    if (!c.ALLOW_DEV_SECRETS && c.ENCRYPTION_KEY === DEV_ENCRYPTION_KEY) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['ENCRYPTION_KEY'],
+        message: 'must not be the public development key',
+      });
+    }
+    if (!c.ALLOW_DEV_SECRETS && c.BOOTSTRAP_ADMIN_PASSWORD === DEV_ADMIN_PASSWORD) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['BOOTSTRAP_ADMIN_PASSWORD'],
+        message: 'must not be the public development password',
+      });
+    }
+    if (c.TRUST_PROXY === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['TRUST_PROXY'],
+        message: 'is required in production (true, false, hop count or CIDR list)',
+      });
+    }
+  }
   if (!c.SMTP_HOST) return;
   for (const key of ['EMAIL_FROM', 'APP_BASE_URL'] as const) {
     if (!c[key]) {

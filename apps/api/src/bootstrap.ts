@@ -11,7 +11,7 @@ export async function createApp(): Promise<NestFastifyApplication> {
   const config = loadConfig();
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter({ trustProxy: true }),
+    new FastifyAdapter({ trustProxy: config.TRUST_PROXY ?? true }),
     { bufferLogs: true },
   );
   app.useLogger(app.get(Logger));

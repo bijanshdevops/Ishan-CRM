@@ -39,6 +39,8 @@ services:
     build: { context: .., dockerfile: apps/api/Dockerfile, target: runner }
     environment:
       NODE_ENV: production
+      TRUST_PROXY: 'true'
+      ALLOW_DEV_SECRETS: 'true'
       PORT: '4000'
       DATABASE_URL: postgresql://ishan:ishan@postgres:5432/ishan?schema=public
       CORS_ORIGINS: http://localhost:${WEB_PORT:-3000}
@@ -60,6 +62,8 @@ services:
     command: ['node', 'dist/worker.js']
     environment:
       NODE_ENV: production
+      TRUST_PROXY: 'true'
+      ALLOW_DEV_SECRETS: 'true'
       WORKER_PORT: '4001'
       DATABASE_URL: postgresql://ishan:ishan@postgres:5432/ishan?schema=public
       REDIS_URL: redis://redis:6379
