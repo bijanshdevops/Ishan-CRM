@@ -10,9 +10,9 @@ import {
 } from '@nestjs/common';
 import { EMAIL_VERIFICATION_TTL_HOURS, EMAIL_VERIFY_REQUESTS_PER_HOUR } from '@ishan/contracts';
 import type { AuthUser } from '../../common/decorators';
-import { RateLimiter } from '../../common/rate-limiter';
 import { APP_CONFIG, type AppConfig } from '../../config';
 import { PrismaService } from '../../infra/prisma.service';
+import { RateLimitService } from '../../infra/rate-limit.service';
 import { AuditService } from '../audit/audit.service';
 import { CryptoService } from '../auth/crypto.service';
 import { MailerService } from './mailer.service';
@@ -26,12 +26,11 @@ const invalid = () =>
 
 @Injectable()
 export class EmailVerificationService {
-  private readonly requestLimiter = new RateLimiter(EMAIL_VERIFY_REQUESTS_PER_HOUR, HOUR_MS);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly mailer: MailerService,
     private readonly audit: AuditService,
+    private readonly rateLimit: RateLimitService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
@@ -53,7 +52,13 @@ export class EmailVerificationService {
         message: 'نشانی ایمیل شما قبلاً تأیید شده است.',
       });
     }
-    if (!this.requestLimiter.allow(actor.id)) {
+    if (
+      !(await this.rateLimit.allow(
+        `verify-request:${actor.id}`,
+        EMAIL_VERIFY_REQUESTS_PER_HOUR,
+        HOUR_MS,
+      ))
+    ) {
       throw new HttpException(
         {
           code: 'rate_limited',

@@ -12,19 +12,18 @@ import {
   type UpdateNotificationPreferences,
 } from '@ishan/contracts';
 import type { AuthUser } from '../../common/decorators';
-import { RateLimiter } from '../../common/rate-limiter';
 import { APP_CONFIG, type AppConfig } from '../../config';
 import { PrismaService } from '../../infra/prisma.service';
+import { RateLimitService } from '../../infra/rate-limit.service';
 import { MailerService } from './mailer.service';
 
 @Injectable()
 export class NotificationPreferencesService {
-  private readonly testLimiter = new RateLimiter(EMAIL_TEST_PER_HOUR, 60 * 60 * 1000);
-
   constructor(
     private readonly prisma: PrismaService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     private readonly mailer: MailerService,
+    private readonly rateLimit: RateLimitService,
   ) {}
 
   private get available(): boolean {
@@ -79,7 +78,9 @@ export class NotificationPreferencesService {
       });
     }
     await this.requireVerified(actor);
-    if (!this.testLimiter.allow(actor.id)) {
+    if (
+      !(await this.rateLimit.allow(`email-test:${actor.id}`, EMAIL_TEST_PER_HOUR, 60 * 60 * 1000))
+    ) {
       throw new HttpException(
         { code: 'rate_limited', message: 'تعداد ایمیل آزمایشی در ساعت گذشته به سقف رسیده است.' },
         HttpStatus.TOO_MANY_REQUESTS,

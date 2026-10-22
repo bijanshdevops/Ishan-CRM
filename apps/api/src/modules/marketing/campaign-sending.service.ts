@@ -26,9 +26,9 @@ import {
 import { z } from 'zod';
 import type { AuthUser } from '../../common/decorators';
 import { ownerWhere } from '../../common/access-scope';
-import { RateLimiter } from '../../common/rate-limiter';
 import { APP_CONFIG, type AppConfig } from '../../config';
 import { PrismaService } from '../../infra/prisma.service';
+import { RateLimitService } from '../../infra/rate-limit.service';
 import { QueueService } from '../../infra/queue/queue.service';
 import { publishCampaignEmails } from '../../jobs/campaign-emails';
 import { AuditService } from '../audit/audit.service';
@@ -55,13 +55,12 @@ const unavailable = () =>
 
 @Injectable()
 export class CampaignSendingService {
-  private readonly testLimiter = new RateLimiter(CAMPAIGN_TEST_PER_HOUR, HOUR_MS);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly mailer: MailerService,
     private readonly audit: AuditService,
     private readonly queues: QueueService,
+    private readonly rateLimit: RateLimitService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
@@ -261,7 +260,9 @@ export class CampaignSendingService {
         message: 'ابتدا نشانی ایمیل خود را در «حساب من» تأیید کنید.',
       });
     }
-    if (!this.testLimiter.allow(actor.id)) {
+    if (
+      !(await this.rateLimit.allow(`campaign-test:${actor.id}`, CAMPAIGN_TEST_PER_HOUR, HOUR_MS))
+    ) {
       throw new HttpException(
         { code: 'rate_limited', message: 'تعداد ایمیل آزمایشی در ساعت گذشته به سقف رسیده است.' },
         HttpStatus.TOO_MANY_REQUESTS,

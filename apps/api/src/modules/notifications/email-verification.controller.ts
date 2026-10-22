@@ -4,26 +4,27 @@ import { VerifyEmailSchema } from '@ishan/contracts';
 import type { FastifyRequest } from 'fastify';
 import type { z } from 'zod';
 import { Public } from '../../common/decorators';
-import { RateLimiter } from '../../common/rate-limiter';
 import { ZodValidationPipe } from '../../common/zod.pipe';
+import { RateLimitService } from '../../infra/rate-limit.service';
 import { EmailVerificationService } from './email-verification.service';
 
 /** Public on purpose: the one-time token in the body is the credential (ADR 0014). */
 @ApiTags('auth')
 @Controller('auth')
 export class EmailVerificationController {
-  private readonly limiter = new RateLimiter(20, 60_000);
-
-  constructor(private readonly verification: EmailVerificationService) {}
+  constructor(
+    private readonly verification: EmailVerificationService,
+    private readonly rateLimit: RateLimitService,
+  ) {}
 
   @Post('verify-email')
   @Public()
   @HttpCode(200)
-  verify(
+  async verify(
     @Req() req: FastifyRequest,
     @Body(new ZodValidationPipe(VerifyEmailSchema)) body: z.infer<typeof VerifyEmailSchema>,
   ) {
-    if (!this.limiter.allow(req.ip)) {
+    if (!(await this.rateLimit.allow(`verify-email:ip:${req.ip}`, 20, 60_000))) {
       throw new HttpException(
         { code: 'rate_limited', message: 'تلاش‌های بیش از حد. کمی بعد دوباره امتحان کنید.' },
         HttpStatus.TOO_MANY_REQUESTS,
