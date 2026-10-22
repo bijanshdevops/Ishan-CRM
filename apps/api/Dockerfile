@@ -21,12 +21,27 @@ FROM build AS migrate
 WORKDIR /repo/apps/api
 CMD ["pnpm", "exec", "prisma", "migrate", "deploy"]
 
+# Runtime dependencies only (no vitest, tsc, prisma CLI...): the runner never sees the dev toolchain.
+FROM base AS prod-deps
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc ./
+COPY apps/api/package.json apps/api/
+COPY packages/config/package.json packages/config/
+COPY packages/contracts/package.json packages/contracts/
+COPY packages/i18n/package.json packages/i18n/
+RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
+    pnpm install --prod --frozen-lockfile --filter @ishan/api...
+
 FROM base AS runner
 # Headless Chromium renders quote PDFs (ADR 0016); the font package gives it Arabic-script shaping.
 RUN apk add --no-cache chromium font-noto-arabic
 ENV NODE_ENV=production \
     PDF_CHROMIUM_PATH=/usr/bin/chromium
-COPY --from=build /repo /repo
+COPY --from=prod-deps /repo /repo
+COPY --from=build /repo/packages/contracts/dist /repo/packages/contracts/dist
+COPY --from=build /repo/packages/i18n/dist /repo/packages/i18n/dist
+COPY --from=build /repo/apps/api/dist /repo/apps/api/dist
+# npm is never called at runtime; its bundled packages only add CVEs.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 USER node
 WORKDIR /repo/apps/api
 EXPOSE 4000
