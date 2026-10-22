@@ -183,13 +183,20 @@ jobs:
           done
           if [ $fail -ne 0 ]; then
             { echo '### Trivy found fixable HIGH/CRITICAL vulnerabilities'; echo '```'; \
-              for img in api web; do jq -r --arg i $img '.Results[]? | .Target as $t | .Vulnerabilities[]? | "\($i) \($t) \(.VulnerabilityID) \(.Severity) \(.PkgName) \(.InstalledVersion) -> \(.FixedVersion)"' scan/$img.json; done | sort -u | head -80; \
+              for img in api web; do jq -r --arg i $img '.Results[]? | .Target as $t | .Vulnerabilities[]? | "\($i) \(.VulnerabilityID) \(.Severity) \(.PkgName) \(.InstalledVersion) -> \(.FixedVersion) \(.PkgPath // $t)"' scan/$img.json; done | sort -u | head -80; \
               echo '```'; } > /tmp/body.md
             gh api repos/${{ github.repository }}/commits/${{ github.sha }}/comments -F body=@/tmp/body.md > /dev/null
             # Pull-request runs cannot comment (read-only token); annotations are readable everywhere.
             echo "::error title=trivy findings::$(sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g' /tmp/body.md | cut -c1-3000)"
           fi
           exit $fail
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-${{ github.sha }}
+          path: scan/*.json
+          retention-days: 30
 
   e2e:
     name: e2e (docker compose + Playwright)
