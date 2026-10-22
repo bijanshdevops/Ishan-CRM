@@ -44,6 +44,7 @@ services:
       CORS_ORIGINS: http://localhost:${WEB_PORT:-3000}
       REDIS_URL: redis://redis:6379
       COOKIE_SECURE: 'false' # dev over http only; keep true behind TLS
+      LOGIN_RATE_LIMIT_PER_ACCOUNT_PER_MINUTE: '1000' # the browser tests sign the same admin in repeatedly
       # DEV-ONLY secrets. Generate real ones: openssl rand -base64 32
       ENCRYPTION_KEY: 'ZGV2LW9ubHktZW5jcnlwdGlvbi1rZXktMzItYnl0ZXM='
       BOOTSTRAP_ADMIN_EMAIL: admin@ishan.local

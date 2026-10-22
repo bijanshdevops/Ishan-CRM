@@ -6,6 +6,7 @@ export const TEST_ENV = {
   BOOTSTRAP_ADMIN_PASSWORD: 'Initial-Passw0rd-Test',
   LOGIN_MAX_FAILURES: '5',
   LOGIN_RATE_LIMIT_PER_MINUTE: '1000',
+  LOGIN_RATE_LIMIT_PER_ACCOUNT_PER_MINUTE: '1000',
   LOG_LEVEL: 'fatal',
 } as const;
 
