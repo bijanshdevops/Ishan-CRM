@@ -345,6 +345,7 @@ test.describe.serial('Ishan CRM end-to-end', () => {
     await page
       .getByLabel(fa.deals.customer, { exact: true })
       .selectOption({ label: `شرکت آزمون ${run}` });
+    await page.getByLabel(fa.quotes.contact, { exact: true }).selectOption({ label: 'سارا احمدی' });
     await page
       .getByLabel(`${fa.quotes.fromProduct} (۱)`)
       .selectOption({ label: `خدمت آزمون ${run}` });
@@ -355,6 +356,7 @@ test.describe.serial('Ishan CRM end-to-end', () => {
     await expect(page).toHaveURL(/\/quotes\/[0-9a-f-]{36}$/);
     await expect(page.getByTestId('doc-number')).toHaveText(/QT-\d{6}/);
     await expect(page.getByTestId('stamp')).toHaveAttribute('data-status', 'DRAFT');
+    await expect(page.getByText('سارا احمدی').first()).toBeVisible();
     await a11y(page, '/quotes/[id]');
 
     // send → accept → contract

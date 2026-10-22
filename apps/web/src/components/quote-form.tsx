@@ -6,6 +6,7 @@ import {
   DEFAULT_TAX_RATE_BP,
   calculateQuoteTotals,
   type QuoteTotals,
+  type ContactDto,
   type DealDto,
   type Page,
   type ProductDto,
@@ -71,6 +72,7 @@ export function QuoteForm({
   const [title, setTitle] = useState(quote?.title ?? '');
   const [customerId, setCustomerId] = useState(quote?.customer.id ?? presetCustomer?.id ?? '');
   const [dealId, setDealId] = useState(quote?.deal?.id ?? '');
+  const [contactId, setContactId] = useState(quote?.contact?.id ?? '');
   const [issueDate, setIssueDate] = useState(quote?.issueDate ?? '');
   const [validUntil, setValidUntil] = useState(quote?.validUntil ?? '');
   const [rows, setRows] = useState<Row[]>(
@@ -100,6 +102,12 @@ export function QuoteForm({
     queryKey: ['deals', 'for-quote', customerId],
     enabled: Boolean(customerId),
     queryFn: () => api<Page<DealDto>>(`/deals?limit=50&customerId=${customerId}`),
+  });
+
+  const contacts = useQuery({
+    queryKey: ['contacts', 'for-quote', customerId],
+    enabled: Boolean(customerId),
+    queryFn: () => api<ContactDto[]>(`/customers/${customerId}/contacts`),
   });
 
   const update = (key: number, patch: Partial<Row>) =>
@@ -144,6 +152,7 @@ export function QuoteForm({
         title,
         customerId,
         dealId: dealId || null,
+        contactId: contactId || null,
         ...(issueDate ? { issueDate } : {}),
         validUntil: validUntil || null,
         discount: parsed.disc.toString(),
@@ -183,9 +192,30 @@ export function QuoteForm({
         onChange={(id) => {
           setCustomerId(id);
           setDealId('');
+          setContactId('');
         }}
         initial={quote ? quote.customer : presetCustomer}
       />
+      <Field label={fa.quotes.contact} hint={fa.quotes.contactHint}>
+        {(p) => (
+          <Select
+            {...p}
+            value={contactId}
+            onChange={(e) => setContactId(e.target.value)}
+            disabled={!customerId}
+          >
+            <option value="">{fa.quotes.noContact}</option>
+            {contacts.data?.map((c) => (
+              <option key={c.id} value={c.id}>
+                {`${c.firstName} ${c.lastName}`.trim()}
+              </option>
+            ))}
+            {quote?.contact && !contacts.data?.some((c) => c.id === quote.contact!.id) ? (
+              <option value={quote.contact.id}>{quote.contact.name}</option>
+            ) : null}
+          </Select>
+        )}
+      </Field>
       <Field label={fa.quotes.deal}>
         {(p) => (
           <Select
