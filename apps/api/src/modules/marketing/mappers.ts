@@ -5,10 +5,12 @@ export const toLeadSourceDto = (s: {
   id: string;
   name: string;
   active: boolean;
+  updatedAt: Date;
 }): LeadSourceDto => ({
   id: s.id,
   name: s.name,
   active: s.active,
+  updatedAt: s.updatedAt.toISOString(),
 });
 
 export const campaignInclude = {

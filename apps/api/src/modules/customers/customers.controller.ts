@@ -212,8 +212,9 @@ export class TagsController {
     @Param('id', uuid()) id: string,
     @Body(new ZodValidationPipe(UpdateTagRequestSchema)) body: Infer<typeof UpdateTagRequestSchema>,
     @Req() req: FastifyRequest,
+    @Headers('if-match') ifMatch: string | undefined,
   ) {
-    return this.tags.update(actor, id, body, req.ip);
+    return this.tags.update(actor, id, body, req.ip, ifMatch);
   }
 
   @Delete(':id')

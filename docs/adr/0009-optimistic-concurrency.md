@@ -31,9 +31,13 @@ overwrites the first. A CRM is edited by teams, so this must be detected, not ho
   `assertWritten()` (zero rows: 412 when a tag was sent, otherwise the usual 404), followed by a
   re-read. A contact write is guarded before it demotes sibling primary contacts, in the same
   transaction, so a stale save changes nothing.
-- Not guarded on purpose: tags, lead sources and pipeline stages have no `updated_at` column (small
-  configuration lists; a migration is not worth it), and quotes and contracts already version
-  explicitly.
+- Update (phase 22): tags, lead sources and pipeline stages gained an `updated_at` column (migration
+  `config_updated_at`: nullable add, back-fill from `created_at`, then `NOT NULL`, so existing rows are
+  valid and Prisma's `@updatedAt` takes over) and the same guard on their `PATCH`. Their DTOs carry
+  `updatedAt`; `TagDto` and `StageDto` are embedded in customer and deal payloads, which now carry it
+  too. Re-ordering the stages touches every stage, so a stage form opened before a re-order is
+  refused once and reloads: the position it shows really did change.
+- Still last-write-wins on purpose: quotes and contracts, which already version explicitly.
 - A user's `updated_at` also moves on sign-in, so an admin form opened before the person logged in
   is refused once: the reload shows the fresh state. That is the correct signal, not noise.
 - Quotes and contracts already version explicitly and are out of scope.

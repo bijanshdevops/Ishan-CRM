@@ -62,8 +62,9 @@ export class LeadSourcesController {
     @Body(new ZodValidationPipe(UpdateLeadSourceRequestSchema))
     body: Infer<typeof UpdateLeadSourceRequestSchema>,
     @Req() req: FastifyRequest,
+    @Headers('if-match') ifMatch: string | undefined,
   ) {
-    return this.sources.update(actor, id, body, req.ip);
+    return this.sources.update(actor, id, body, req.ip, ifMatch);
   }
 }
 

@@ -7,12 +7,14 @@ export const toStageDto = (s: {
   position: number;
   probability: number;
   kind: 'OPEN' | 'WON' | 'LOST';
+  updatedAt: Date;
 }): StageDto => ({
   id: s.id,
   name: s.name,
   position: s.position,
   probability: s.probability,
   kind: s.kind,
+  updatedAt: s.updatedAt.toISOString(),
 });
 
 export const leadInclude = {

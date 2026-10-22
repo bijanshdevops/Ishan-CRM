@@ -344,6 +344,7 @@ model Tag {
   name           String
   color          String   @default("#6366f1")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   organization Organization  @relation(fields: [organizationId], references: [id])
   customers    CustomerTag[]
@@ -407,6 +408,7 @@ model LeadSource {
   name           String
   active         Boolean  @default(true)
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id])
   leads        Lead[]
@@ -454,6 +456,7 @@ model PipelineStage {
   probability    Int       @default(0)
   kind           StageKind @default(OPEN)
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id])
   deals        Deal[]

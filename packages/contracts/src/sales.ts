@@ -137,10 +137,11 @@ export interface StageDto {
   position: number;
   probability: number;
   kind: StageKind;
+  updatedAt: string;
 }
 
 /** Stages created for a new organization. These are configuration, not demo data. */
-export const DEFAULT_STAGES: Array<Omit<StageDto, 'id' | 'position'>> = [
+export const DEFAULT_STAGES: Array<Omit<StageDto, 'id' | 'position' | 'updatedAt'>> = [
   { name: 'شناسایی', probability: 10, kind: 'OPEN' },
   { name: 'ارزیابی نیاز', probability: 25, kind: 'OPEN' },
   { name: 'ارائه پیشنهاد', probability: 50, kind: 'OPEN' },

@@ -316,7 +316,11 @@ function SourcesCard({ canWrite, canReport }: { canWrite: boolean; canReport: bo
   });
   const toggle = useMutation({
     mutationFn: (s: LeadSourceDto) =>
-      api(`/lead-sources/${s.id}`, { method: 'PATCH', body: { active: !s.active } }),
+      api(`/lead-sources/${s.id}`, {
+        method: 'PATCH',
+        body: { active: !s.active },
+        version: s.updatedAt,
+      }),
     onSuccess: () => {
       toast(fa.campaigns.sourceUpdated);
       refresh();
