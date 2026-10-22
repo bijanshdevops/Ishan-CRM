@@ -164,7 +164,7 @@ function UserDialog({
   const toast = useToast();
   const roles = useRoles();
   const [name, setName] = useState(isNew ? '' : target.name);
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(isNew ? '' : target.email);
   const [roleId, setRoleId] = useState(isNew ? '' : target.role.id);
   const [status, setStatus] = useState<'ACTIVE' | 'DISABLED'>(isNew ? 'ACTIVE' : target.status);
   const [password, setPassword] = useState('');
@@ -185,7 +185,12 @@ function UserDialog({
       }
       return api(`/users/${target.id}`, {
         method: 'PATCH',
-        body: { name, roleId, status },
+        body: {
+          name,
+          roleId,
+          status,
+          ...(email.trim().toLowerCase() !== target.email ? { email: email.trim() } : {}),
+        },
         version: target.updatedAt,
       });
     },
@@ -215,19 +220,29 @@ function UserDialog({
         <Field label={fa.common.name}>
           {(p) => <Input {...p} value={name} onChange={(e) => setName(e.target.value)} />}
         </Field>
+        <Field
+          label={fa.common.email}
+          hint={
+            isNew
+              ? undefined
+              : target.id === selfId
+                ? fa.users.ownEmailHint
+                : fa.users.emailChangeHint
+          }
+        >
+          {(p) => (
+            <Input
+              {...p}
+              dir="ltr"
+              type="email"
+              value={email}
+              disabled={!isNew && target.id === selfId}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          )}
+        </Field>
         {isNew ? (
           <>
-            <Field label={fa.common.email}>
-              {(p) => (
-                <Input
-                  {...p}
-                  dir="ltr"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              )}
-            </Field>
             <Field label={fa.users.temporaryPassword} hint={fa.users.temporaryHint}>
               {(p) => (
                 <Input

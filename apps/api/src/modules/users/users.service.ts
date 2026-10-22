@@ -13,8 +13,14 @@ import { PasswordService } from '../auth/password.service';
 import { SessionService } from '../auth/session.service';
 import { toUserDto } from './user.mapper';
 
+const isUniqueViolation = (e: unknown) =>
+  typeof e === 'object' && e !== null && (e as { code?: string }).code === 'P2002';
+const emailTaken = () =>
+  new ConflictException({ code: 'EMAIL_TAKEN', message: 'این ایمیل قبلاً ثبت شده است' });
+
 interface UpdateInput {
   name?: string;
+  email?: string;
   roleId?: string;
   status?: 'ACTIVE' | 'DISABLED';
 }
@@ -143,20 +149,61 @@ export class UsersService {
     if (losesAdmin && target.status === 'ACTIVE')
       await this.assertAnotherAdmin(actor.organizationId, target.id);
 
-    const written = await this.prisma.user.updateMany({
-      where: casWhere(id, ifMatch, target.updatedAt),
-      data: {
-        ...(dto.name !== undefined ? { name: dto.name } : {}),
-        ...(dto.roleId !== undefined ? { roleId: dto.roleId } : {}),
-        ...(dto.status !== undefined ? { status: dto.status } : {}),
-      },
-    });
+    const emailChanged = dto.email !== undefined && dto.email !== target.email;
+    if (emailChanged) {
+      if (target.id === actor.id) {
+        throw new BadRequestException({
+          code: 'CANNOT_CHANGE_OWN_EMAIL',
+          message: 'نشانی ایمیل خودتان را مدیر دیگری باید تغییر دهد',
+        });
+      }
+      // Includes soft-deleted rows: the unique index (organization, email) does too.
+      const clash = await this.prisma.user.findFirst({
+        where: { organizationId: actor.organizationId, email: dto.email, id: { not: id } },
+        select: { id: true },
+      });
+      if (clash) throw emailTaken();
+    }
+
+    let written;
+    try {
+      written = await this.prisma.user.updateMany({
+        where: casWhere(id, ifMatch, target.updatedAt),
+        data: {
+          ...(dto.name !== undefined ? { name: dto.name } : {}),
+          // A new address is unproven until its owner clicks a link sent there (ADR 0014).
+          ...(emailChanged ? { email: dto.email, emailVerifiedAt: null } : {}),
+          ...(dto.roleId !== undefined ? { roleId: dto.roleId } : {}),
+          ...(dto.status !== undefined ? { status: dto.status } : {}),
+        },
+      });
+    } catch (e) {
+      // Lost a race for the address between the check above and the write.
+      if (isUniqueViolation(e)) throw emailTaken();
+      throw e;
+    }
     assertWritten(written.count, ifMatch, new NotFoundException('کاربر یافت نشد'));
     const row = await this.prisma.user.findUniqueOrThrow({
       where: { id },
       include: { role: true },
     });
-    if (willDisable || (dto.roleId && dto.roleId !== target.roleId)) {
+    if (emailChanged) {
+      // Links sent to the old address must not verify the new one (the verify step also checks).
+      await this.prisma.emailVerificationToken.updateMany({
+        where: { userId: id, usedAt: null },
+        data: { usedAt: new Date() },
+      });
+      await this.audit.record({
+        organizationId: actor.organizationId,
+        actorId: actor.id,
+        action: 'user.email_changed',
+        entityType: 'user',
+        entityId: id,
+        metadata: { from: target.email, to: dto.email },
+        ip,
+      });
+    }
+    if (willDisable || emailChanged || (dto.roleId && dto.roleId !== target.roleId)) {
       await this.sessions.revokeAllForUser(id);
     }
     await this.audit.record({
