@@ -8,6 +8,7 @@ import type {
 } from '@ishan/contracts';
 import { normalizeText, parseRial } from '@ishan/contracts';
 import type { AuthUser } from '../../common/decorators';
+import { assertCanAssign, ownerWhere, resolveOwner } from '../../common/access-scope';
 import { PrismaService } from '../../infra/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { campaignInclude, campaignSearchText, toCampaignDto } from './mappers';
@@ -28,6 +29,7 @@ export class CampaignsService {
       where: {
         organizationId: actor.organizationId,
         deletedAt: null,
+        ...ownerWhere(actor),
         ...(q.status ? { status: q.status } : {}),
         ...(term ? { searchText: { contains: term } } : {}),
         ...(q.cursor ? { id: { lt: q.cursor } } : {}),
@@ -42,7 +44,7 @@ export class CampaignsService {
 
   async get(actor: AuthUser, id: string): Promise<CampaignDto> {
     const c = await this.prisma.campaign.findFirst({
-      where: { id, organizationId: actor.organizationId, deletedAt: null },
+      where: { id, organizationId: actor.organizationId, deletedAt: null, ...ownerWhere(actor) },
       include: campaignInclude,
     });
     if (!c) throw new NotFoundException('کمپین یافت نشد');
@@ -59,7 +61,8 @@ export class CampaignsService {
   }
 
   async create(actor: AuthUser, dto: CreateCampaignRequest, ip?: string) {
-    await this.assertOwner(actor.organizationId, dto.ownerId);
+    const ownerId = resolveOwner(actor, dto.ownerId);
+    await this.assertOwner(actor.organizationId, ownerId);
     const c = await this.prisma.campaign.create({
       data: {
         organizationId: actor.organizationId,
@@ -69,7 +72,7 @@ export class CampaignsService {
         startDate: toDate(dto.startDate) ?? null,
         endDate: toDate(dto.endDate) ?? null,
         budget: parseRial(dto.budget),
-        ownerId: dto.ownerId ?? actor.id,
+        ownerId: ownerId ?? actor.id,
         createdById: actor.id,
         notes: dto.notes ?? null,
         searchText: campaignSearchText(dto),
@@ -88,10 +91,13 @@ export class CampaignsService {
 
   async update(actor: AuthUser, id: string, dto: UpdateCampaignRequest, ip?: string) {
     const existing = await this.prisma.campaign.findFirst({
-      where: { id, organizationId: actor.organizationId, deletedAt: null },
+      where: { id, organizationId: actor.organizationId, deletedAt: null, ...ownerWhere(actor) },
     });
     if (!existing) throw new NotFoundException('کمپین یافت نشد');
-    if (dto.ownerId !== undefined) await this.assertOwner(actor.organizationId, dto.ownerId);
+    if (dto.ownerId !== undefined) {
+      assertCanAssign(actor, dto.ownerId);
+      await this.assertOwner(actor.organizationId, dto.ownerId);
+    }
     const startDate = dto.startDate === undefined ? existing.startDate : toDate(dto.startDate);
     const endDate = dto.endDate === undefined ? existing.endDate : toDate(dto.endDate);
     if (startDate && endDate && endDate < startDate) {
@@ -134,7 +140,7 @@ export class CampaignsService {
   /** Soft delete; leads keep their history but are detached by the FK on hard delete only. */
   async remove(actor: AuthUser, id: string, ip?: string) {
     const c = await this.prisma.campaign.findFirst({
-      where: { id, organizationId: actor.organizationId, deletedAt: null },
+      where: { id, organizationId: actor.organizationId, deletedAt: null, ...ownerWhere(actor) },
       select: { id: true },
     });
     if (!c) throw new NotFoundException('کمپین یافت نشد');

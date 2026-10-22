@@ -14,6 +14,7 @@ import type {
 } from '@ishan/contracts';
 import { normalizeText } from '@ishan/contracts';
 import type { AuthUser } from '../../common/decorators';
+import { ownerWhere } from '../../common/access-scope';
 import { PrismaService } from '../../infra/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import {
@@ -36,12 +37,18 @@ export class ContractsService {
     private readonly audit: AuditService,
   ) {}
 
+  /** A contract belongs to whoever owns its quote. */
+  private scope(actor: AuthUser) {
+    return actor.scopeUserIds === null ? {} : { quote: { is: ownerWhere(actor) } };
+  }
+
   async list(actor: AuthUser, q: ContractListQuery): Promise<Page<ContractDto>> {
     const term = q.q ? normalizeText(q.q) : '';
     const rows = await this.prisma.contract.findMany({
       where: {
         organizationId: actor.organizationId,
         deletedAt: null,
+        ...this.scope(actor),
         ...(q.status ? { status: q.status } : {}),
         ...(q.customerId ? { customerId: q.customerId } : {}),
         ...(term ? { searchText: { contains: term } } : {}),
@@ -57,7 +64,7 @@ export class ContractsService {
 
   async get(actor: AuthUser, id: string): Promise<ContractDto> {
     const c = await this.prisma.contract.findFirst({
-      where: { id, organizationId: actor.organizationId, deletedAt: null },
+      where: { id, organizationId: actor.organizationId, deletedAt: null, ...this.scope(actor) },
       include: contractInclude,
     });
     if (!c) throw new NotFoundException('قرارداد یافت نشد');
@@ -66,7 +73,12 @@ export class ContractsService {
 
   async create(actor: AuthUser, dto: CreateContractRequest, ip?: string): Promise<ContractDto> {
     const quote = await this.prisma.quote.findFirst({
-      where: { id: dto.quoteId, organizationId: actor.organizationId, deletedAt: null },
+      where: {
+        id: dto.quoteId,
+        organizationId: actor.organizationId,
+        deletedAt: null,
+        ...ownerWhere(actor),
+      },
       include: { customer: { select: { name: true, deletedAt: true } } },
     });
     if (!quote)
@@ -129,7 +141,7 @@ export class ContractsService {
 
   async update(actor: AuthUser, id: string, dto: UpdateContractRequest, ip?: string) {
     const c = await this.prisma.contract.findFirst({
-      where: { id, organizationId: actor.organizationId, deletedAt: null },
+      where: { id, organizationId: actor.organizationId, deletedAt: null, ...this.scope(actor) },
     });
     if (!c) throw new NotFoundException('قرارداد یافت نشد');
     if (c.status === 'COMPLETED' || c.status === 'TERMINATED') {
@@ -186,7 +198,7 @@ export class ContractsService {
     ip?: string,
   ) {
     const c = await this.prisma.contract.findFirst({
-      where: { id, organizationId: actor.organizationId, deletedAt: null },
+      where: { id, organizationId: actor.organizationId, deletedAt: null, ...this.scope(actor) },
     });
     if (!c) throw new NotFoundException('قرارداد یافت نشد');
     const rule = ContractsService.FLOW[action];

@@ -10,6 +10,7 @@ import type {
 } from '@ishan/contracts';
 import { parseRial } from '@ishan/contracts';
 import type { AuthUser } from '../../common/decorators';
+import { assertCanAssign, ownerWhere, resolveOwner } from '../../common/access-scope';
 import { PrismaService } from '../../infra/prisma.service';
 import { DomainEventsService } from '../events/domain-events.service';
 import { AuditService } from '../audit/audit.service';
@@ -28,6 +29,7 @@ export class DealsService {
       where: {
         organizationId: actor.organizationId,
         deletedAt: null,
+        ...ownerWhere(actor),
         ...(q.stageId ? { stageId: q.stageId } : {}),
         ...(q.customerId ? { customerId: q.customerId } : {}),
         ...(q.ownerId ? { ownerId: q.ownerId } : {}),
@@ -51,7 +53,7 @@ export class DealsService {
 
   async get(actor: AuthUser, id: string): Promise<DealDto> {
     const d = await this.prisma.deal.findFirst({
-      where: { id, organizationId: actor.organizationId, deletedAt: null },
+      where: { id, organizationId: actor.organizationId, deletedAt: null, ...ownerWhere(actor) },
       include: dealInclude,
     });
     if (!d) throw new NotFoundException('فرصت یافت نشد');
@@ -65,7 +67,7 @@ export class DealsService {
     const org = actor.organizationId;
     if (refs.customerId) {
       const c = await this.prisma.customer.findFirst({
-        where: { id: refs.customerId, organizationId: org, deletedAt: null },
+        where: { id: refs.customerId, organizationId: org, deletedAt: null, ...ownerWhere(actor) },
         select: { id: true },
       });
       if (!c)
@@ -95,7 +97,8 @@ export class DealsService {
   }
 
   async create(actor: AuthUser, dto: CreateDealRequest, ip?: string): Promise<DealDto> {
-    await this.assertRefs(actor, dto);
+    const ownerId = resolveOwner(actor, dto.ownerId);
+    await this.assertRefs(actor, { ...dto, ownerId });
     let stageId = dto.stageId;
     if (stageId) {
       const s = await this.prisma.pipelineStage.findFirst({
@@ -129,7 +132,7 @@ export class DealsService {
           stageId: stageId!,
           amount: parseRial(dto.amount),
           expectedCloseDate: dto.expectedCloseDate ? new Date(dto.expectedCloseDate) : null,
-          ownerId: dto.ownerId ?? actor.id,
+          ownerId: ownerId ?? actor.id,
           createdById: actor.id,
           notes: dto.notes ?? null,
         },
@@ -167,10 +170,11 @@ export class DealsService {
 
   async update(actor: AuthUser, id: string, dto: UpdateDealRequest, ip?: string, ifMatch?: string) {
     const existing = await this.prisma.deal.findFirst({
-      where: { id, organizationId: actor.organizationId, deletedAt: null },
+      where: { id, organizationId: actor.organizationId, deletedAt: null, ...ownerWhere(actor) },
     });
     if (!existing) throw new NotFoundException('فرصت یافت نشد');
     assertIfMatch(ifMatch, existing.updatedAt);
+    if (dto.ownerId !== undefined) assertCanAssign(actor, dto.ownerId);
     await this.assertRefs(actor, {
       customerId: existing.customerId,
       contactId: dto.contactId,
@@ -216,7 +220,7 @@ export class DealsService {
     ip?: string,
   ) {
     const deal = await this.prisma.deal.findFirst({
-      where: { id, organizationId: actor.organizationId, deletedAt: null },
+      where: { id, organizationId: actor.organizationId, deletedAt: null, ...ownerWhere(actor) },
     });
     if (!deal) throw new NotFoundException('فرصت یافت نشد');
     const stage = await this.prisma.pipelineStage.findFirst({
@@ -271,7 +275,7 @@ export class DealsService {
 
   async remove(actor: AuthUser, id: string, ip?: string) {
     const d = await this.prisma.deal.findFirst({
-      where: { id, organizationId: actor.organizationId, deletedAt: null },
+      where: { id, organizationId: actor.organizationId, deletedAt: null, ...ownerWhere(actor) },
       select: { id: true },
     });
     if (!d) throw new NotFoundException('فرصت یافت نشد');
@@ -294,7 +298,7 @@ export class DealsService {
       }),
       this.prisma.deal.groupBy({
         by: ['stageId'],
-        where: { organizationId: actor.organizationId, deletedAt: null },
+        where: { organizationId: actor.organizationId, deletedAt: null, ...ownerWhere(actor) },
         _count: { _all: true },
         _sum: { amount: true },
       }),

@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ALL_PERMISSIONS, isPermission } from '@ishan/contracts';
+import type { DataScope } from '@ishan/contracts';
 import type { AuthUser } from '../../common/decorators';
 import { PrismaService } from '../../infra/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -16,6 +17,7 @@ interface RoleRow {
   description: string | null;
   isSystem: boolean;
   permissions: string[];
+  dataScope: string;
 }
 
 const toDto = (r: RoleRow, userCount?: number) => ({
@@ -25,6 +27,7 @@ const toDto = (r: RoleRow, userCount?: number) => ({
   description: r.description,
   isSystem: r.isSystem,
   permissions: r.permissions,
+  dataScope: r.dataScope,
   ...(userCount !== undefined ? { userCount } : {}),
 });
 
@@ -59,7 +62,13 @@ export class RolesService {
 
   async create(
     actor: AuthUser,
-    dto: { key: string; name: string; description?: string; permissions: string[] },
+    dto: {
+      key: string;
+      name: string;
+      description?: string;
+      permissions: string[];
+      dataScope?: DataScope;
+    },
     ip?: string,
   ) {
     const perms = this.validatePermissions(dto.permissions);
@@ -77,6 +86,7 @@ export class RolesService {
         name: dto.name,
         description: dto.description ?? null,
         permissions: perms,
+        dataScope: dto.dataScope ?? 'ALL',
       },
     });
     await this.audit.record({
@@ -85,7 +95,7 @@ export class RolesService {
       action: 'role.created',
       entityType: 'role',
       entityId: row.id,
-      metadata: { key: row.key, permissions: perms },
+      metadata: { key: row.key, permissions: perms, dataScope: row.dataScope },
       ip,
     });
     return toDto(row);
@@ -94,7 +104,12 @@ export class RolesService {
   async update(
     actor: AuthUser,
     id: string,
-    dto: { name?: string; description?: string; permissions?: string[] },
+    dto: {
+      name?: string;
+      description?: string;
+      permissions?: string[];
+      dataScope?: DataScope;
+    },
     ip?: string,
   ) {
     const role = await this.prisma.role.findFirst({
@@ -102,10 +117,24 @@ export class RolesService {
     });
     if (!role) throw new NotFoundException('نقش یافت نشد');
     if (role.isSystem) {
-      throw new BadRequestException({
-        code: 'SYSTEM_ROLE_IMMUTABLE',
-        message: 'نقش‌های سیستمی قابل ویرایش نیستند',
-      });
+      // System roles keep their name and permissions; only the data scope is adjustable (not admin's).
+      const onlyScope =
+        dto.dataScope !== undefined &&
+        dto.name === undefined &&
+        dto.description === undefined &&
+        dto.permissions === undefined;
+      if (!onlyScope) {
+        throw new BadRequestException({
+          code: 'SYSTEM_ROLE_IMMUTABLE',
+          message: 'نقش‌های سیستمی قابل ویرایش نیستند',
+        });
+      }
+      if (role.key === 'admin' && dto.dataScope !== 'ALL') {
+        throw new BadRequestException({
+          code: 'ADMIN_SCOPE_LOCKED',
+          message: 'دامنه‌ی دسترسی نقش مدیر سیستم تغییر نمی‌کند',
+        });
+      }
     }
     const perms = dto.permissions ? this.validatePermissions(dto.permissions) : undefined;
     const row = await this.prisma.role.update({
@@ -114,6 +143,7 @@ export class RolesService {
         ...(dto.name !== undefined ? { name: dto.name } : {}),
         ...(dto.description !== undefined ? { description: dto.description } : {}),
         ...(perms ? { permissions: perms } : {}),
+        ...(dto.dataScope !== undefined ? { dataScope: dto.dataScope } : {}),
       },
     });
     await this.audit.record({

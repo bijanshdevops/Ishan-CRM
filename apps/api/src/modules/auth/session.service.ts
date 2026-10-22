@@ -1,4 +1,5 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { isDataScope, type DataScope } from '@ishan/contracts';
 import { randomBytes } from 'node:crypto';
 import type { AuthUser } from '../../common/decorators';
 import { APP_CONFIG, type AppConfig } from '../../config';
@@ -6,6 +7,8 @@ import { PrismaService } from '../../infra/prisma.service';
 import { CryptoService } from './crypto.service';
 
 const TOUCH_INTERVAL_MS = 60_000;
+/** Most teammates one TEAM-scope user may have; more is an error, never a silently partial view. */
+const MAX_TEAM_SCOPE = 5000;
 
 @Injectable()
 export class SessionService {
@@ -62,6 +65,7 @@ export class SessionService {
       });
     }
     const { user } = session;
+    const dataScope = isDataScope(user.role.dataScope) ? user.role.dataScope : 'OWN';
     return {
       id: user.id,
       organizationId: user.organizationId,
@@ -71,10 +75,40 @@ export class SessionService {
       roleKey: user.role.key,
       roleName: user.role.name,
       permissions: user.role.permissions,
+      dataScope,
+      scopeUserIds: await this.scopeUserIds(user.id, user.organizationId, dataScope),
       sessionId: session.id,
       mustChangePassword: user.mustChangePassword,
       mfaEnabled: user.mfaEnabled,
     };
+  }
+
+  /**
+   * Owners whose records the user may see (ADR 0017). Read on every request, never cached, so a
+   * change of team membership or role takes effect at once. `null` = no restriction.
+   */
+  private async scopeUserIds(
+    userId: string,
+    organizationId: string,
+    scope: DataScope,
+  ): Promise<string[] | null> {
+    if (scope === 'ALL') return null;
+    if (scope === 'OWN') return [userId];
+    const mates = await this.prisma.teamMember.findMany({
+      where: {
+        team: { organizationId, deletedAt: null, members: { some: { userId } } },
+      },
+      select: { userId: true },
+      distinct: ['userId'],
+      take: MAX_TEAM_SCOPE + 1,
+    });
+    if (mates.length > MAX_TEAM_SCOPE) {
+      throw new ServiceUnavailableException({
+        code: 'scope_too_large',
+        message: 'تعداد هم‌تیمی‌ها از سقف مجاز گذشته است.',
+      });
+    }
+    return [...new Set([userId, ...mates.map((m) => m.userId)])];
   }
 
   async revoke(sessionId: string, userId: string): Promise<boolean> {

@@ -597,7 +597,10 @@ describe.skipIf(!run)('campaign e-mail sending (database)', () => {
       data: created.map((c: any) => ({ customerId: c.id, tagId: big.id })),
     });
     await expect(
-      svc.resolveAudience(orgId, { tagIds: [big.id], kind: null }),
+      svc.resolveAudience(
+        { organizationId: orgId, scopeUserIds: null },
+        { tagIds: [big.id], kind: null },
+      ),
     ).rejects.toMatchObject({
       response: { code: 'too_many_recipients' },
     });

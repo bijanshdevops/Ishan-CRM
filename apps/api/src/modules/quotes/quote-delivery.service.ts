@@ -15,6 +15,7 @@ import {
   type SendQuoteEmail,
 } from '@ishan/contracts';
 import type { AuthUser } from '../../common/decorators';
+import { ownerWhere } from '../../common/access-scope';
 import { APP_CONFIG, type AppConfig } from '../../config';
 import { PrismaService } from '../../infra/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -41,7 +42,7 @@ export class QuoteDeliveryService {
 
   private async load(actor: AuthUser, id: string) {
     const q = await this.prisma.quote.findFirst({
-      where: { id, organizationId: actor.organizationId, deletedAt: null },
+      where: { id, organizationId: actor.organizationId, deletedAt: null, ...ownerWhere(actor) },
       include: {
         ...quoteInclude,
         customer: { select: { id: true, name: true, email: true } },

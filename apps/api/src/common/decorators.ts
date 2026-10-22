@@ -26,6 +26,10 @@ export interface AuthUser {
   roleKey: string;
   roleName: string;
   permissions: string[];
+  /** Which records this user may see and change (ADR 0017). */
+  dataScope: 'ALL' | 'TEAM' | 'OWN';
+  /** Owner ids whose records are in scope; `null` means every record (scope ALL). */
+  scopeUserIds: string[] | null;
   sessionId: string;
   mustChangePassword: boolean;
   mfaEnabled: boolean;
