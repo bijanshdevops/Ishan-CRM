@@ -140,8 +140,9 @@ describe.skipIf(!run)('row-level access (database)', () => {
     expect(
       (await call('PATCH', `/campaigns/${campaignA}`, 'ra-admin', { ownerId: ids['ra-a'] })).status,
     ).toBe(200);
-    noteA = (await call('POST', '/activities', 'ra-a', { type: 'NOTE', title: 'یادداشت الف' })).body
-      .id;
+    noteA = (
+      await call('POST', '/activities', 'ra-a', { type: 'NOTE', description: 'یادداشت الف' })
+    ).body.id;
     for (const id of [customerA, leadA, dealA, campaignA, noteA]) expect(id).toBeTruthy();
   });
 
@@ -201,7 +202,7 @@ describe.skipIf(!run)('row-level access (database)', () => {
     expect(deal.status).toBe(400);
     const act = await call('POST', '/activities', 'ra-c', {
       type: 'NOTE',
-      title: 'ورود غیرمجاز',
+      description: 'ورود غیرمجاز',
       customerId: customerA,
     });
     expect(act.status).toBe(400);
@@ -235,7 +236,7 @@ describe.skipIf(!run)('row-level access (database)', () => {
     expect(own.status).toBe(200);
     expect(a.status).toBe(200);
     const leadsOf = (r: Res) =>
-      (r.body.leads?.byStatus ?? []).reduce((n: number, s: any) => n + (s.count ?? 0), 0);
+      Object.values(r.body.leads?.byStatus ?? {}).reduce((n: number, c: any) => n + Number(c), 0);
     expect(leadsOf(own)).toBe(0);
   });
 
