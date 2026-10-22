@@ -53,7 +53,11 @@ export default function ProductsPage() {
 
   const toggle = useMutation({
     mutationFn: (p: ProductDto) =>
-      api(`/products/${p.id}`, { method: 'PATCH', body: { active: !p.active } }),
+      api(`/products/${p.id}`, {
+        method: 'PATCH',
+        body: { active: !p.active },
+        version: p.updatedAt,
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['products'] }),
     onError: (e) => toast(msg(e), 'error'),
   });
@@ -189,7 +193,7 @@ function ProductDialog({ product, onClose }: { product: ProductDto | null; onClo
         description: description.trim() || (product ? null : undefined),
       };
       return product
-        ? api(`/products/${product.id}`, { method: 'PATCH', body })
+        ? api(`/products/${product.id}`, { method: 'PATCH', body, version: product.updatedAt })
         : api('/products', { method: 'POST', body });
     },
     onSuccess: () => {

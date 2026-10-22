@@ -34,6 +34,7 @@ interface RoleRow {
   permissions: string[];
   dataScope: DataScope;
   userCount: number;
+  updatedAt: string;
 }
 
 const SCOPE_LABELS: Record<DataScope, string> = {
@@ -84,8 +85,12 @@ export default function RolesPage() {
       setError(e instanceof ApiClientError || e instanceof Error ? e.message : fa.common.error),
   });
   const changeScope = useMutation({
-    mutationFn: (v: { id: string; dataScope: DataScope }) =>
-      api(`/roles/${v.id}`, { method: 'PATCH', body: { dataScope: v.dataScope } }),
+    mutationFn: (v: { id: string; dataScope: DataScope; version: string }) =>
+      api(`/roles/${v.id}`, {
+        method: 'PATCH',
+        body: { dataScope: v.dataScope },
+        version: v.version,
+      }),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ['roles'] });
       toast(fa.roles.scopeSaved);
@@ -155,7 +160,11 @@ export default function RolesPage() {
                         value={r.dataScope}
                         disabled={changeScope.isPending}
                         onChange={(e) =>
-                          changeScope.mutate({ id: r.id, dataScope: e.target.value as DataScope })
+                          changeScope.mutate({
+                            id: r.id,
+                            dataScope: e.target.value as DataScope,
+                            version: r.updatedAt,
+                          })
                         }
                       >
                         {DATA_SCOPES.map((s) => (

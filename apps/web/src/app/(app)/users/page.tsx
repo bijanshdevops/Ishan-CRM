@@ -183,7 +183,11 @@ function UserDialog({
         if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? fa.common.error);
         return api('/users', { method: 'POST', body: parsed.data });
       }
-      return api(`/users/${target.id}`, { method: 'PATCH', body: { name, roleId, status } });
+      return api(`/users/${target.id}`, {
+        method: 'PATCH',
+        body: { name, roleId, status },
+        version: target.updatedAt,
+      });
     },
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ['users'] });

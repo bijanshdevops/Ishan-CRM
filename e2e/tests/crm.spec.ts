@@ -324,6 +324,56 @@ test.describe.serial('Ishan CRM end-to-end', () => {
     await a11y(page, '/calendar (notifications bell)');
   });
 
+  test('stale edit: a second tab saved first, so the first tab is refused and nothing is lost', async ({
+    page,
+    context,
+  }) => {
+    await loginAdmin(page);
+    const name = `محصول هم‌زمان ${run}`;
+    await page.goto('/products');
+    await page.getByRole('button', { name: fa.products.add }).click();
+    const create = page.getByRole('dialog');
+    await create.getByLabel(fa.products.name, { exact: true }).fill(name);
+    await create.getByLabel(fa.products.unitPrice, { exact: true }).fill('5000');
+    await create.getByRole('button', { name: fa.common.save }).click();
+    await expect(page.getByText(fa.products.created)).toBeVisible();
+
+    // Tab 1 opens the edit form and keeps it open.
+    const row = page.getByRole('row').filter({ hasText: name });
+    await row.getByRole('button', { name: fa.common.edit }).click();
+    const first = page.getByRole('dialog');
+    await first.getByLabel(fa.products.description, { exact: true }).fill('از تب اول');
+
+    // Tab 2 edits and saves the same product first.
+    const other = await context.newPage();
+    await other.goto('/products');
+    await other
+      .getByRole('row')
+      .filter({ hasText: name })
+      .getByRole('button', { name: fa.common.edit })
+      .click();
+    const second = other.getByRole('dialog');
+    await second.getByLabel(fa.products.description, { exact: true }).fill('از تب دوم');
+    await second.getByRole('button', { name: fa.common.save }).click();
+    await expect(other.getByText(fa.products.updated)).toBeVisible();
+    await other.close();
+
+    // Tab 1 saves late: refused, the dialog stays open with the explanation.
+    await first.getByRole('button', { name: fa.common.save }).click();
+    await expect(first.getByText(/در این فاصله/)).toBeVisible();
+    await expect(first).toBeVisible();
+    await first.getByRole('button', { name: fa.common.cancel }).click();
+    await page.reload();
+    await page
+      .getByRole('row')
+      .filter({ hasText: name })
+      .getByRole('button', { name: fa.common.edit })
+      .click();
+    await expect(
+      page.getByRole('dialog').getByLabel(fa.products.description, { exact: true }),
+    ).toHaveValue('از تب دوم');
+  });
+
   test('quote lifecycle: product, quote, send, accept, contract, print view', async ({ page }) => {
     await loginAdmin(page);
 
