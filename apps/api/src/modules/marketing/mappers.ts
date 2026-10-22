@@ -29,6 +29,7 @@ export function toCampaignDto(c: {
   owner: { id: string; name: string } | null;
   notes: string | null;
   createdAt: Date;
+  updatedAt: Date;
   _count: { leads: number };
 }): CampaignDto {
   return {
@@ -43,6 +44,7 @@ export function toCampaignDto(c: {
     notes: c.notes,
     leadCount: c._count.leads,
     createdAt: c.createdAt.toISOString(),
+    updatedAt: c.updatedAt.toISOString(),
   };
 }
 

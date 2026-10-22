@@ -167,8 +167,9 @@ export class ContactsController {
     @Body(new ZodValidationPipe(UpdateContactRequestSchema))
     body: Infer<typeof UpdateContactRequestSchema>,
     @Req() req: FastifyRequest,
+    @Headers('if-match') ifMatch: string | undefined,
   ) {
-    return this.contacts.update(actor, id, body, req.ip);
+    return this.contacts.update(actor, id, body, req.ip, ifMatch);
   }
 
   @Delete(':id')

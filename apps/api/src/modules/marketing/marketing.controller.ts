@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   Param,
   ParseUUIDPipe,
@@ -105,8 +106,9 @@ export class CampaignsController {
     @Body(new ZodValidationPipe(UpdateCampaignRequestSchema))
     body: Infer<typeof UpdateCampaignRequestSchema>,
     @Req() req: FastifyRequest,
+    @Headers('if-match') ifMatch: string | undefined,
   ) {
-    return this.campaigns.update(actor, id, body, req.ip);
+    return this.campaigns.update(actor, id, body, req.ip, ifMatch);
   }
 
   @Delete(':id')

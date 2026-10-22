@@ -21,6 +21,7 @@ export const toProductDto = (p: {
   description: string | null;
   active: boolean;
   createdAt: Date;
+  updatedAt: Date;
 }): ProductDto => ({
   id: p.id,
   name: p.name,
@@ -30,6 +31,7 @@ export const toProductDto = (p: {
   description: p.description,
   active: p.active,
   createdAt: p.createdAt.toISOString(),
+  updatedAt: p.updatedAt.toISOString(),
 });
 
 export const quoteInclude = {

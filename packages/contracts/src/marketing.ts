@@ -103,6 +103,7 @@ export interface CampaignDto {
   notes: string | null;
   leadCount: number;
   createdAt: string;
+  updatedAt: string;
 }
 
 // ---- Reports ----------------------------------------------------------------

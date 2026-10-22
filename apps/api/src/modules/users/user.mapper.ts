@@ -9,6 +9,7 @@ interface UserWithRole {
   mustChangePassword: boolean;
   lastLoginAt: Date | null;
   createdAt: Date;
+  updatedAt: Date;
   role: { id: string; key: string; name: string; permissions?: string[] };
 }
 
@@ -23,6 +24,7 @@ export function toUserDto(u: UserWithRole): UserDto {
     role: { id: u.role.id, key: u.role.key, name: u.role.name },
     lastLoginAt: u.lastLoginAt?.toISOString() ?? null,
     createdAt: u.createdAt.toISOString(),
+    updatedAt: u.updatedAt.toISOString(),
   };
 }
 

@@ -1,3 +1,4 @@
+import { assertIfMatch, assertWritten, casWhere } from '../../common/etag';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { ContactDto, CreateContactRequest } from '@ishan/contracts';
 import type { z } from 'zod';
@@ -83,6 +84,7 @@ export class ContactsService {
     id: string,
     dto: z.infer<typeof UpdateContactRequestSchema>,
     ip?: string,
+    ifMatch?: string,
   ) {
     const existing = await this.prisma.contact.findFirst({
       where: {
@@ -93,6 +95,7 @@ export class ContactsService {
       },
     });
     if (!existing) throw new NotFoundException('مخاطب یافت نشد');
+    assertIfMatch(ifMatch, existing.updatedAt);
     const next = {
       firstName: dto.firstName,
       lastName: dto.lastName,
@@ -106,16 +109,19 @@ export class ContactsService {
     const data = Object.fromEntries(Object.entries(next).filter(([, v]) => v !== undefined));
     const merged = { ...existing, ...data } as typeof existing;
     const updated = await this.prisma.$transaction(async (tx) => {
+      // Guarded write first: a stale tag aborts the transaction before siblings are touched.
+      const written = await tx.contact.updateMany({
+        where: { ...casWhere(id, ifMatch, existing.updatedAt), deletedAt: null },
+        data: { ...data, searchText: contactSearchText(merged) },
+      });
+      assertWritten(written.count, ifMatch, new NotFoundException('مخاطب یافت نشد'));
       if (dto.isPrimary && existing.customerId) {
         await tx.contact.updateMany({
           where: { customerId: existing.customerId, id: { not: id } },
           data: { isPrimary: false },
         });
       }
-      return tx.contact.update({
-        where: { id },
-        data: { ...data, searchText: contactSearchText(merged) },
-      });
+      return tx.contact.findUniqueOrThrow({ where: { id } });
     });
     await this.audit.record({
       organizationId: actor.organizationId,

@@ -1,3 +1,4 @@
+import { assertIfMatch, assertWritten, casWhere } from '../../common/etag';
 import {
   BadRequestException,
   ForbiddenException,
@@ -302,8 +303,10 @@ export class ActivitiesService {
     id: string,
     dto: UpdateActivityRequest,
     ip?: string,
+    ifMatch?: string,
   ): Promise<ActivityDto> {
     const cur = await this.loadForWrite(actor, id);
+    assertIfMatch(ifMatch, cur.updatedAt);
     const touchesSchedule =
       dto.dueAt !== undefined || dto.endAt !== undefined || dto.remindAt !== undefined;
     if (touchesSchedule && cur.status !== 'PLANNED') {
@@ -337,8 +340,8 @@ export class ActivitiesService {
     const outcome = dto.outcome === undefined ? cur.outcome : dto.outcome || null;
     const reminderChanged =
       dto.remindAt !== undefined || (dto.dueAt !== undefined && cur.remindAt !== null);
-    await this.prisma.activity.update({
-      where: { id },
+    const written = await this.prisma.activity.updateMany({
+      where: casWhere(id, ifMatch, cur.updatedAt),
       data: {
         title: merged.title,
         description: merged.description,
@@ -357,6 +360,7 @@ export class ActivitiesService {
         }),
       },
     });
+    assertWritten(written.count, ifMatch, new NotFoundException('فعالیت یافت نشد'));
     await this.record(actor, 'activity.updated', id, { fields: Object.keys(dto) }, ip);
     return this.get(actor, id);
   }

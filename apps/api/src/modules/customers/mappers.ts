@@ -62,6 +62,7 @@ export function toContactDto(c: {
   isPrimary: boolean;
   notes: string | null;
   createdAt: Date;
+  updatedAt: Date;
 }): ContactDto {
   return {
     id: c.id,
@@ -75,6 +76,7 @@ export function toContactDto(c: {
     isPrimary: c.isPrimary,
     notes: c.notes,
     createdAt: c.createdAt.toISOString(),
+    updatedAt: c.updatedAt.toISOString(),
   };
 }
 

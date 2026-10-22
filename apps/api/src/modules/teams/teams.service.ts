@@ -1,3 +1,4 @@
+import { assertIfMatch, assertWritten, casWhere } from '../../common/etag';
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import type { AuthUser } from '../../common/decorators';
 import { PrismaService } from '../../infra/prisma.service';
@@ -21,6 +22,7 @@ export class TeamsService {
       name: t.name,
       description: t.description,
       memberCount: t._count.members,
+      updatedAt: t.updatedAt.toISOString(),
     }));
   }
 
@@ -42,6 +44,7 @@ export class TeamsService {
       id: team.id,
       name: team.name,
       description: team.description,
+      updatedAt: team.updatedAt.toISOString(),
       members: team.members.map((m) => ({
         userId: m.userId,
         name: m.user.name,
@@ -75,7 +78,13 @@ export class TeamsService {
       metadata: { name: team.name },
       ip,
     });
-    return { id: team.id, name: team.name, description: team.description, memberCount: 0 };
+    return {
+      id: team.id,
+      name: team.name,
+      description: team.description,
+      memberCount: 0,
+      updatedAt: team.updatedAt.toISOString(),
+    };
   }
 
   async update(
@@ -83,8 +92,10 @@ export class TeamsService {
     id: string,
     dto: { name?: string; description?: string },
     ip?: string,
+    ifMatch?: string,
   ) {
-    await this.findTeam(actor, id);
+    const cur = await this.findTeam(actor, id);
+    assertIfMatch(ifMatch, cur.updatedAt);
     if (dto.name) {
       const clash = await this.prisma.team.findFirst({
         where: { organizationId: actor.organizationId, name: dto.name, id: { not: id } },
@@ -92,13 +103,15 @@ export class TeamsService {
       if (clash)
         throw new ConflictException({ code: 'TEAM_NAME_TAKEN', message: 'نام تیم تکراری است' });
     }
-    const team = await this.prisma.team.update({
-      where: { id },
+    const written = await this.prisma.team.updateMany({
+      where: { ...casWhere(id, ifMatch, cur.updatedAt), deletedAt: null },
       data: {
         ...(dto.name !== undefined ? { name: dto.name } : {}),
         ...(dto.description !== undefined ? { description: dto.description } : {}),
       },
     });
+    assertWritten(written.count, ifMatch, new NotFoundException('تیم یافت نشد'));
+    const team = await this.prisma.team.findUniqueOrThrow({ where: { id } });
     await this.audit.record({
       organizationId: actor.organizationId,
       actorId: actor.id,
@@ -108,7 +121,12 @@ export class TeamsService {
       metadata: { changes: dto },
       ip,
     });
-    return { id: team.id, name: team.name, description: team.description };
+    return {
+      id: team.id,
+      name: team.name,
+      description: team.description,
+      updatedAt: team.updatedAt.toISOString(),
+    };
   }
 
   async remove(actor: AuthUser, id: string, ip?: string): Promise<void> {

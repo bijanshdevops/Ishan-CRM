@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   Param,
   ParseUUIDPipe,
@@ -54,8 +55,9 @@ export class RolesController {
     @Body(new ZodValidationPipe(UpdateRoleRequestSchema))
     body: z.infer<typeof UpdateRoleRequestSchema>,
     @Req() req: FastifyRequest,
+    @Headers('if-match') ifMatch: string | undefined,
   ) {
-    return this.roles.update(actor, id, body, req.ip);
+    return this.roles.update(actor, id, body, req.ip, ifMatch);
   }
 
   @Delete(':id')

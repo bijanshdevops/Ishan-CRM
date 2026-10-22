@@ -1,3 +1,4 @@
+import { assertIfMatch, assertWritten, casWhere } from '../../common/etag';
 import {
   BadRequestException,
   ConflictException,
@@ -109,12 +110,19 @@ export class UsersService {
     return toUserDto(row);
   }
 
-  async update(actor: AuthUser, id: string, dto: UpdateInput, ip?: string): Promise<UserDto> {
+  async update(
+    actor: AuthUser,
+    id: string,
+    dto: UpdateInput,
+    ip?: string,
+    ifMatch?: string,
+  ): Promise<UserDto> {
     const target = await this.prisma.user.findFirst({
       where: { id, organizationId: actor.organizationId, deletedAt: null },
       include: { role: true },
     });
     if (!target) throw new NotFoundException('کاربر یافت نشد');
+    assertIfMatch(ifMatch, target.updatedAt);
 
     let newRoleKey = target.role.key;
     if (dto.roleId && dto.roleId !== target.roleId) {
@@ -135,13 +143,17 @@ export class UsersService {
     if (losesAdmin && target.status === 'ACTIVE')
       await this.assertAnotherAdmin(actor.organizationId, target.id);
 
-    const row = await this.prisma.user.update({
-      where: { id },
+    const written = await this.prisma.user.updateMany({
+      where: casWhere(id, ifMatch, target.updatedAt),
       data: {
         ...(dto.name !== undefined ? { name: dto.name } : {}),
         ...(dto.roleId !== undefined ? { roleId: dto.roleId } : {}),
         ...(dto.status !== undefined ? { status: dto.status } : {}),
       },
+    });
+    assertWritten(written.count, ifMatch, new NotFoundException('کاربر یافت نشد'));
+    const row = await this.prisma.user.findUniqueOrThrow({
+      where: { id },
       include: { role: true },
     });
     if (willDisable || (dto.roleId && dto.roleId !== target.roleId)) {

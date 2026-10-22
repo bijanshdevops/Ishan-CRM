@@ -1,3 +1,4 @@
+import { assertIfMatch, assertWritten, casWhere } from '../../common/etag';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type {
   CampaignDto,
@@ -89,11 +90,18 @@ export class CampaignsService {
     return this.get(actor, c.id);
   }
 
-  async update(actor: AuthUser, id: string, dto: UpdateCampaignRequest, ip?: string) {
+  async update(
+    actor: AuthUser,
+    id: string,
+    dto: UpdateCampaignRequest,
+    ip?: string,
+    ifMatch?: string,
+  ) {
     const existing = await this.prisma.campaign.findFirst({
       where: { id, organizationId: actor.organizationId, deletedAt: null, ...ownerWhere(actor) },
     });
     if (!existing) throw new NotFoundException('کمپین یافت نشد');
+    assertIfMatch(ifMatch, existing.updatedAt);
     if (dto.ownerId !== undefined) {
       assertCanAssign(actor, dto.ownerId);
       await this.assertOwner(actor.organizationId, dto.ownerId);
@@ -118,13 +126,14 @@ export class CampaignsService {
       notes: blank(dto.notes),
     };
     const data = Object.fromEntries(Object.entries(next).filter(([, v]) => v !== undefined));
-    await this.prisma.campaign.update({
-      where: { id },
+    const written = await this.prisma.campaign.updateMany({
+      where: { ...casWhere(id, ifMatch, existing.updatedAt), deletedAt: null },
       data: {
         ...data,
         searchText: campaignSearchText({ ...existing, ...data } as typeof existing),
       },
     });
+    assertWritten(written.count, ifMatch, new NotFoundException('کمپین یافت نشد'));
     await this.audit.record({
       organizationId: actor.organizationId,
       actorId: actor.id,

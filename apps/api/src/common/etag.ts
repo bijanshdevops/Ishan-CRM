@@ -54,6 +54,24 @@ export function unchangedSince(updatedAt: Date): { updatedAt: { gte: Date; lt: D
   return { updatedAt: { gte: updatedAt, lt: new Date(updatedAt.getTime() + 1) } };
 }
 
+/** WHERE for a guarded UPDATE: with a concrete tag the row must still be the one the client saw. */
+export function casWhere(
+  id: string,
+  ifMatch: string | undefined,
+  seen: Date,
+): { id: string; updatedAt?: { gte: Date; lt: Date } } {
+  return { id, ...(hasPrecondition(ifMatch) ? unchangedSince(seen) : {}) };
+}
+
+/** Zero affected rows: 412 when a precondition was sent, otherwise the row vanished (404). */
+export function assertWritten(
+  count: number,
+  ifMatch: string | undefined,
+  gone: HttpException,
+): void {
+  if (count === 0) throw hasPrecondition(ifMatch) ? staleEntity() : gone;
+}
+
 /** Adds `ETag` to every single-entity response that carries an `id` and an `updatedAt`. */
 @Injectable()
 export class EtagInterceptor implements NestInterceptor {

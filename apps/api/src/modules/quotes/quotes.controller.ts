@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   Param,
   ParseUUIDPipe,
@@ -75,8 +76,9 @@ export class ProductsController {
     @Body(new ZodValidationPipe(UpdateProductRequestSchema))
     body: Infer<typeof UpdateProductRequestSchema>,
     @Req() req: FastifyRequest,
+    @Headers('if-match') ifMatch: string | undefined,
   ) {
-    return this.products.update(actor, id, body, req.ip);
+    return this.products.update(actor, id, body, req.ip, ifMatch);
   }
 }
 

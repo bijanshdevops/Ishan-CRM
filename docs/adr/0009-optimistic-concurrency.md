@@ -25,8 +25,17 @@ overwrites the first. A CRM is edited by teams, so this must be detected, not ho
 
 ## Consequences
 
-- Other PATCH endpoints (contacts, tags, products, campaigns, users, activities) are not guarded
-  yet; adding one is a `ifMatch` parameter plus the same two helpers.
+- Update (phase 18): the same contract now covers `PATCH` of workflows, webhooks, **contacts,
+  products, campaigns, activities, users, teams and roles**. Their DTOs gained `updatedAt` (teams
+  and roles are plain objects). The guarded write is `updateMany` with `casWhere()` plus
+  `assertWritten()` (zero rows: 412 when a tag was sent, otherwise the usual 404), followed by a
+  re-read. A contact write is guarded before it demotes sibling primary contacts, in the same
+  transaction, so a stale save changes nothing.
+- Not guarded on purpose: tags, lead sources and pipeline stages have no `updated_at` column (small
+  configuration lists; a migration is not worth it), and quotes and contracts already version
+  explicitly.
+- A user's `updated_at` also moves on sign-in, so an admin form opened before the person logged in
+  is refused once: the reload shows the fresh state. That is the correct signal, not noise.
 - Quotes and contracts already version explicitly and are out of scope.
 - Tests: unit (`etag.spec.ts`, `api.test.ts`) and database tests for customers, leads and deals,
   including a two-writer race on one tag.

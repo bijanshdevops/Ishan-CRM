@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   Param,
   ParseUUIDPipe,
@@ -76,8 +77,9 @@ export class UsersController {
     @Body(new ZodValidationPipe(UpdateUserRequestSchema))
     body: z.infer<typeof UpdateUserRequestSchema>,
     @Req() req: FastifyRequest,
+    @Headers('if-match') ifMatch: string | undefined,
   ) {
-    return this.users.update(actor, id, body, req.ip);
+    return this.users.update(actor, id, body, req.ip, ifMatch);
   }
 
   @Post(':id/reset-password')

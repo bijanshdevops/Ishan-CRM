@@ -1,3 +1,4 @@
+import { assertIfMatch, assertWritten, casWhere } from '../../common/etag';
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import type {
   CreateProductRequest,
@@ -83,19 +84,26 @@ export class ProductsService {
     }
   }
 
-  async update(actor: AuthUser, id: string, dto: UpdateProductRequest, ip?: string) {
+  async update(
+    actor: AuthUser,
+    id: string,
+    dto: UpdateProductRequest,
+    ip?: string,
+    ifMatch?: string,
+  ) {
     const existing = await this.prisma.product.findFirst({
       where: { id, organizationId: actor.organizationId },
     });
     if (!existing) throw new NotFoundException('محصول یافت نشد');
+    assertIfMatch(ifMatch, existing.updatedAt);
     const merged = {
       name: dto.name ?? existing.name,
       sku: dto.sku === undefined ? existing.sku : dto.sku || null,
       description: dto.description === undefined ? existing.description : dto.description || null,
     };
     try {
-      const p = await this.prisma.product.update({
-        where: { id },
+      const written = await this.prisma.product.updateMany({
+        where: casWhere(id, ifMatch, existing.updatedAt),
         data: {
           name: merged.name,
           sku: merged.sku,
@@ -106,6 +114,8 @@ export class ProductsService {
           searchText: searchText(merged),
         },
       });
+      assertWritten(written.count, ifMatch, new NotFoundException('محصول یافت نشد'));
+      const p = await this.prisma.product.findUniqueOrThrow({ where: { id } });
       await this.audit.record({
         organizationId: actor.organizationId,
         actorId: actor.id,
