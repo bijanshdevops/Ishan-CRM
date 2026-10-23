@@ -495,6 +495,9 @@ export async function seedDemoData(
         items: { create: items },
       },
     });
+    if (status === 'ACCEPTED') {
+      accepted.push({ id: createdQuote.id, seq, title, ck, total: subtotal + taxAmount });
+    }
   }
   const TEAMS: Array<[string, string, number[]]> = [
     ['فروش سازمانی', 'مشتریان حقوقی و قراردادهای بزرگ', [0, 1]],
