@@ -460,12 +460,6 @@ export async function seedDemoData(
   for (const [name, description, members] of TEAMS) {
     const lead = owner(members[0]!)!;
     const userIds = [...new Set([lead, ...members.slice(1).map((m) => owner(m)!), ctx.demoUserId])];
-    // Teams are configuration (visitors cannot edit them), so the reset keeps them: create once.
-    const exists = await tx.team.findFirst({
-      where: { organizationId: org, name, deletedAt: null },
-      select: { id: true },
-    });
-    if (exists) continue;
     await tx.team.create({
       data: {
         organizationId: org,

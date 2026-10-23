@@ -5,12 +5,15 @@ export const DEMO_USER_EMAIL = 'demo@ishan-demo.invalid';
 export const DEMO_USER_NAME = 'کاربر دمو';
 
 /**
- * What a visitor of the public demo may do: everything about customers and sales, nothing about the system
+ * What a visitor of the public demo may do: everything about customers, sales and teams, nothing about the system
  * itself. Missing on purpose: users, roles, audit, webhooks, campaign sending, imports/exports (bulk data
  * leaving or entering), pipeline configuration.
  */
 export const DEMO_PERMISSIONS: Permission[] = [
   PERMISSIONS.TEAMS_READ,
+  PERMISSIONS.TEAMS_WRITE,
+  // Only to pick team members; the users are fictional and every write on users stays closed.
+  PERMISSIONS.USERS_READ,
   PERMISSIONS.CUSTOMERS_READ,
   PERMISSIONS.CUSTOMERS_WRITE,
   PERMISSIONS.CUSTOMERS_DELETE,
@@ -40,6 +43,8 @@ export const DEMO_PERMISSIONS: Permission[] = [
 
 /** Tables holding visitor-editable business data; emptied by every reset. Users, roles and sessions stay. */
 export const DEMO_RESET_TABLES = [
+  'team_members',
+  'teams',
   'quote_emails',
   'quote_items',
   'contracts',

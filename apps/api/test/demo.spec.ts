@@ -19,7 +19,6 @@ describe('demo role', () => {
   });
   it('cannot administer the system, send mail, call out or move bulk data', () => {
     const forbidden = [
-      PERMISSIONS.USERS_READ,
       PERMISSIONS.USERS_WRITE,
       PERMISSIONS.ROLES_READ,
       PERMISSIONS.ROLES_WRITE,
@@ -35,7 +34,6 @@ describe('demo role', () => {
       PERMISSIONS.PIPELINE_MANAGE,
       PERMISSIONS.WORKFLOWS_WRITE,
       PERMISSIONS.WORKFLOWS_DELETE,
-      PERMISSIONS.TEAMS_WRITE,
     ];
     for (const p of forbidden) expect(DEMO_PERMISSIONS).not.toContain(p);
   });
@@ -47,7 +45,6 @@ describe('demo role', () => {
       'organizations',
       'pipeline_stages',
       'lead_sources',
-      'teams',
     ]) {
       expect(DEMO_RESET_TABLES as readonly string[]).not.toContain(t);
     }
