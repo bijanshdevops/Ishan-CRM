@@ -40,6 +40,8 @@ export const DEMO_PERMISSIONS: Permission[] = [
 
 /** Tables holding visitor-editable business data; emptied by every reset. Users, roles and sessions stay. */
 export const DEMO_RESET_TABLES = [
+  'team_members',
+  'teams',
   'quote_emails',
   'quote_items',
   'contracts',

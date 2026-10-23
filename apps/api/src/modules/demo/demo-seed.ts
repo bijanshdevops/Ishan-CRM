@@ -452,6 +452,29 @@ export async function seedDemoData(
       },
     });
   }
+  const TEAMS: Array<[string, string, number[]]> = [
+    ['فروش سازمانی', 'مشتریان حقوقی و قراردادهای بزرگ', [0, 1]],
+    ['فروش خرد', 'مشتریان کوچک و پیگیری سرنخ‌های ورودی', [1, 2]],
+    ['پشتیبانی مشتریان', 'پاسخ‌گویی و پیگیری پس از فروش', [2, 0]],
+  ];
+  for (const [name, description, members] of TEAMS) {
+    await tx.team.create({
+      data: {
+        organizationId: org,
+        name,
+        description,
+        members: {
+          create: [
+            { userId: ctx.demoUserId, role: 'MEMBER' as const },
+            ...members.map((m, k) => ({
+              userId: owner(m),
+              role: k === 0 ? ('LEAD' as const) : ('MEMBER' as const),
+            })),
+          ].filter((m, i, all) => all.findIndex((x) => x.userId === m.userId) === i),
+        },
+      },
+    });
+  }
   await tx.documentCounter.upsert({
     where: { organizationId_kind: { organizationId: org, kind: 'quote' } },
     create: { organizationId: org, kind: 'quote', value: QUOTES.length },
