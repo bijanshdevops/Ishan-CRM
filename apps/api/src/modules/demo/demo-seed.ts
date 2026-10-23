@@ -452,6 +452,34 @@ export async function seedDemoData(
       },
     });
   }
+  const TEAMS: Array<[string, string, number[]]> = [
+    ['فروش سازمانی', 'مشتریان حقوقی و قراردادهای بزرگ', [0, 1]],
+    ['فروش خرد', 'مشتریان کوچک و پیگیری سرنخ‌های ورودی', [1, 2]],
+    ['پشتیبانی مشتریان', 'پاسخ‌گویی و پیگیری پس از فروش', [2, 0]],
+  ];
+  for (const [name, description, members] of TEAMS) {
+    const lead = owner(members[0]!)!;
+    const userIds = [...new Set([lead, ...members.slice(1).map((m) => owner(m)!), ctx.demoUserId])];
+    // Teams are configuration (visitors cannot edit them), so the reset keeps them: create once.
+    const exists = await tx.team.findFirst({
+      where: { organizationId: org, name, deletedAt: null },
+      select: { id: true },
+    });
+    if (exists) continue;
+    await tx.team.create({
+      data: {
+        organizationId: org,
+        name,
+        description,
+        members: {
+          create: userIds.map((userId) => ({
+            userId,
+            role: userId === lead ? ('LEAD' as const) : ('MEMBER' as const),
+          })),
+        },
+      },
+    });
+  }
   await tx.documentCounter.upsert({
     where: { organizationId_kind: { organizationId: org, kind: 'quote' } },
     create: { organizationId: org, kind: 'quote', value: QUOTES.length },

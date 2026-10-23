@@ -34,6 +34,7 @@ i=0; while :; do
   i=$((i+1)); [ $i -lt 60 ] || fail "the demo data was never loaded"; sleep 3
 done
 ok "auto-login works and the fictional data is loaded ($n customers)"
+get "$API/teams" | jq -e 'length >= 3' >/dev/null || fail "the fictional teams are not loaded"
 
 role="$(get "$API/auth/me" | jq -r .role.key)"
 [ "$role" = demo ] || fail "visitor has role '$role', expected the restricted demo role"
