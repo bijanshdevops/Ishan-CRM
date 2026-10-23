@@ -431,6 +431,9 @@ export const fa = {
     number: 'شماره',
     version: 'نسخه',
     quoteTitle: 'عنوان',
+    contact: 'مخاطب',
+    noContact: 'بدون مخاطب',
+    contactHint: 'گیرنده‌ی پیش‌فرض ایمیل پیش‌فاکتور',
     customer: 'مشتری',
     status: 'وضعیت',
     statuses: {
