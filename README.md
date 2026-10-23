@@ -21,6 +21,8 @@ pnpm dev                                      # web: :3000 ، api: :4000
 
 اجرای کل پشته با Docker: `docker compose -f deploy/compose.dev.yml up --build`
 
+پشتیبان‌گیری و بازیابی PostgreSQL: [`docs/backup-restore.md`](docs/backup-restore.md) (ADR 0025).
+
 - سلامت API: `GET /api/v1/health/live` و `GET /api/v1/health/ready`
 - مستندات OpenAPI (فقط خارج از production): `/api/docs`
 
