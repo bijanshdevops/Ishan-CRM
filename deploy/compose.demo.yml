@@ -114,6 +114,8 @@ services:
     environment:
       <<: *api-env
     restart: unless-stopped
+    # The image's built-in healthcheck probes the API port; this container is a loop, not a server.
+    healthcheck: { disable: true }
     depends_on:
       api: { condition: service_healthy }
 
