@@ -40,10 +40,12 @@ role="$(get "$API/auth/me" | jq -r .role.key)"
 [ "$role" = demo ] || fail "visitor has role '$role', expected the restricted demo role"
 ok "visitor runs as the restricted demo role"
 
-for path in users roles audit-logs webhooks; do
+for path in roles audit-logs webhooks; do
   [ "$(code -b "$JAR" "$API/$path")" = 403 ] || fail "$path is reachable by the demo visitor"
 done
-ok "user, role, audit and webhook management are closed"
+ok "role, audit and webhook management are closed"
+[ "$(code -b "$JAR" -H "Origin: $ORIGIN" -H 'Content-Type: application/json' -X POST -d '{"email":"x@example.com","name":"x"}' "$API/users")" = 403 ] || fail "a user could be created"
+ok "users are read-only"
 [ "$(code -b "$JAR" -H "Origin: $ORIGIN" -H 'Content-Type: application/json' -X POST -d '{"url":"https://example.com/h","events":["customer.created"]}' "$API/webhooks")" = 403 ] || fail "a webhook could be created"
 r="$(post -d '{"currentPassword":"x","newPassword":"Another-Passw0rd-123"}' "$API/auth/change-password")"
 echo "$r" | grep -q DEMO_RESTRICTED || fail "the shared account's password could be changed: $r"
@@ -53,6 +55,8 @@ ok "credentials of the shared account cannot be changed"
 # Free writing, then the hourly reset puts the data back.
 post -d '{"kind":"PERSON","name":"مشتری آزمایشی دمو"}' "$API/customers" | jq -e .id >/dev/null || fail "visitors cannot create a customer"
 get -G --data-urlencode "q=آزمایشی" "$API/customers" | jq -e '.items | length >= 1' >/dev/null || fail "the new customer is not listed"
+tid="$(post -d '{"name":"تیم آزمایشی دمو"}' "$API/teams" | jq -r .id)"
+[ -n "$tid" ] && [ "$tid" != null ] || fail "visitors cannot create a team"
 ok "visitors can write freely"
 if [ $# -gt 0 ]; then "$@" >/dev/null 2>&1 || fail "the reset command failed"; else
   docker compose -f deploy/compose.demo.yml --env-file "${DEMO_ENV_FILE:-deploy/demo.env}" exec -T reset node dist/modules/demo/reset-cli.js >/dev/null 2>&1 || fail "the reset command failed"
