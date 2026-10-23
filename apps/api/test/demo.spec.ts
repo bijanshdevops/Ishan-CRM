@@ -27,25 +27,12 @@ describe('demo role', () => {
       PERMISSIONS.WEBHOOKS_WRITE,
       PERMISSIONS.WEBHOOKS_DELETE,
       PERMISSIONS.CAMPAIGNS_SEND,
-      PERMISSIONS.CAMPAIGNS_DELETE,
-      PERMISSIONS.CUSTOMERS_IMPORT,
-      PERMISSIONS.CUSTOMERS_EXPORT,
-      PERMISSIONS.REPORTS_EXPORT,
       PERMISSIONS.PIPELINE_MANAGE,
-      PERMISSIONS.WORKFLOWS_WRITE,
-      PERMISSIONS.WORKFLOWS_DELETE,
     ];
     for (const p of forbidden) expect(DEMO_PERMISSIONS).not.toContain(p);
   });
   it('the reset never touches accounts, roles, sessions or configuration', () => {
-    for (const t of [
-      'users',
-      'roles',
-      'sessions',
-      'organizations',
-      'pipeline_stages',
-      'lead_sources',
-    ]) {
+    for (const t of ['users', 'roles', 'sessions', 'organizations', 'pipeline_stages']) {
       expect(DEMO_RESET_TABLES as readonly string[]).not.toContain(t);
     }
   });

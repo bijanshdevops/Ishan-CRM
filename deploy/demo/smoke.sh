@@ -35,6 +35,10 @@ i=0; while :; do
 done
 ok "auto-login works and the fictional data is loaded ($n customers)"
 get "$API/teams" | jq -e 'length >= 3' >/dev/null || fail "the fictional teams are not loaded"
+for path in campaigns contracts tags workflows; do
+  get "$API/$path" | jq -e '(if type=="array" then . else .items end) | length >= 1' >/dev/null || fail "no fictional $path are loaded"
+done
+ok "campaigns, contracts, tags and workflows are loaded"
 
 role="$(get "$API/auth/me" | jq -r .role.key)"
 [ "$role" = demo ] || fail "visitor has role '$role', expected the restricted demo role"
@@ -57,7 +61,8 @@ post -d '{"kind":"PERSON","name":"مشتری آزمایشی دمو"}' "$API/cust
 get -G --data-urlencode "q=آزمایشی" "$API/customers" | jq -e '.items | length >= 1' >/dev/null || fail "the new customer is not listed"
 tid="$(post -d '{"name":"تیم آزمایشی دمو"}' "$API/teams" | jq -r .id)"
 [ -n "$tid" ] && [ "$tid" != null ] || fail "visitors cannot create a team"
-ok "visitors can write freely"
+[ "$(code -b "$JAR" "$API/customers/export")" = 200 ] || fail "customer export is closed"
+ok "visitors can write freely and export"
 if [ $# -gt 0 ]; then "$@" >/dev/null 2>&1 || fail "the reset command failed"; else
   docker compose -f deploy/compose.demo.yml --env-file "${DEMO_ENV_FILE:-deploy/demo.env}" exec -T reset node dist/modules/demo/reset-cli.js >/dev/null 2>&1 || fail "the reset command failed"
 fi
