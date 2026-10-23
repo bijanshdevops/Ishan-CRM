@@ -9,6 +9,7 @@ import { InfraModule } from './infra/infra.module';
 import { ActivitiesModule } from './modules/activities/activities.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { DemoModule } from './modules/demo/demo.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { BootstrapModule } from './modules/bootstrap/bootstrap.module';
 import { HealthModule } from './modules/health/health.module';
@@ -54,6 +55,8 @@ const config = loadConfig();
     NotificationsModule,
     WorkflowsModule,
     WebhooksModule,
+    // Public live demo only (ADR 0026): the routes do not exist in any other deployment.
+    ...(config.DEMO_MODE ? [DemoModule] : []),
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

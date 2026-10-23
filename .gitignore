@@ -10,3 +10,4 @@ coverage
 .DS_Store
 apps/api/src/generated
 *.tsbuildinfo
+deploy/demo.env

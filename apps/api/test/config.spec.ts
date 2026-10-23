@@ -43,4 +43,37 @@ describe('loadConfig', () => {
       );
     });
   });
+  describe('demo mode (ADR 0026)', () => {
+    const demo = {
+      ...TEST_ENV,
+      NODE_ENV: 'production',
+      TRUST_PROXY: '1',
+      DEMO_MODE: 'true',
+      DATABASE_URL: 'postgresql://u:p@db:5432/ishan_demo?schema=public',
+    };
+    it('is off by default', () => {
+      expect(loadConfig({ ...TEST_ENV, DATABASE_URL: 'x' }).DEMO_MODE).toBe(false);
+    });
+    it('accepts a _demo database in production mode', () => {
+      expect(loadConfig(demo).DEMO_MODE).toBe(true);
+    });
+    it('refuses any other database', () => {
+      expect(() => loadConfig({ ...demo, DATABASE_URL: 'postgresql://u:p@db:5432/ishan' })).toThrow(
+        /_demo/,
+      );
+      expect(() => loadConfig({ ...demo, DATABASE_URL: 'not a url' })).toThrow(/_demo/);
+    });
+    it('refuses outgoing e-mail, public dev secrets and non-production mode', () => {
+      expect(() =>
+        loadConfig({
+          ...demo,
+          SMTP_HOST: 'smtp.example.com',
+          EMAIL_FROM: 'a@b.c',
+          APP_BASE_URL: 'https://x.test',
+        }),
+      ).toThrow(/SMTP_HOST/);
+      expect(() => loadConfig({ ...demo, ALLOW_DEV_SECRETS: 'true' })).toThrow(/ALLOW_DEV_SECRETS/);
+      expect(() => loadConfig({ ...demo, NODE_ENV: 'development' })).toThrow(/NODE_ENV/);
+    });
+  });
 });

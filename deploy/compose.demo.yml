@@ -1,0 +1,125 @@
+# Public live demo (ADR 0026), served by greenlanco.ir at https://ishan.greenlanco.ir/demo.
+# A stack of its own - separate database, Redis and secrets - that never shares data with any real deployment.
+#
+#   cp deploy/demo.env.example deploy/demo.env   # then fill in the two secrets (see the file)
+#   docker network create greenlanco_internal    # only if the website stack is not running on this host
+#   docker compose -f deploy/compose.demo.yml --env-file deploy/demo.env up -d --build
+#
+# The web container joins the website's `greenlanco_internal` network under the alias `ishan-demo-app`,
+# which is where the website's nginx proxies https://ishan.greenlanco.ir/demo to. Nothing is published to the host.
+name: ishan-demo
+
+x-api-env: &api-env
+  NODE_ENV: production
+  DEMO_MODE: 'true'
+  # cloudflared -> nginx -> web (Next proxy) -> api: three trusted hops (ADR 0024); verify after deploy.
+  TRUST_PROXY: '3'
+  DATABASE_URL: postgresql://ishan:${DEMO_POSTGRES_PASSWORD:?set it in deploy/demo.env}@postgres:5432/ishan_demo?schema=public
+  REDIS_URL: redis://redis:6379
+  ENCRYPTION_KEY: ${DEMO_ENCRYPTION_KEY:?set it in deploy/demo.env}
+  BOOTSTRAP_ORG_NAME: ایشان (نسخه نمایشی)
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ishan
+      POSTGRES_PASSWORD: ${DEMO_POSTGRES_PASSWORD:?set it in deploy/demo.env}
+      POSTGRES_DB: ishan_demo
+    volumes: ['demo-pgdata:/var/lib/postgresql/data']
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ishan -d ishan_demo']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    build: { context: .., dockerfile: apps/api/Dockerfile, target: migrate }
+    environment:
+      DATABASE_URL: postgresql://ishan:${DEMO_POSTGRES_PASSWORD:?set it in deploy/demo.env}@postgres:5432/ishan_demo?schema=public
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: 'no'
+
+  api:
+    build: { context: .., dockerfile: apps/api/Dockerfile, target: runner }
+    environment:
+      <<: *api-env
+      PORT: '4000'
+      CORS_ORIGINS: https://ishan.greenlanco.ir
+      COOKIE_SECURE: 'true'
+    restart: unless-stopped
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+
+  worker:
+    build: { context: .., dockerfile: apps/api/Dockerfile, target: runner }
+    command: ['node', 'dist/worker.js']
+    environment:
+      <<: *api-env
+      WORKER_PORT: '4001'
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:4001/health/live >/dev/null || exit 1']
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: /demo/api/v1
+        NEXT_PUBLIC_BASE_PATH: /demo
+        NEXT_PUBLIC_DEMO: 'true'
+        API_INTERNAL_URL: http://api:4000
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/demo/login >/dev/null || exit 1']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      default: {}
+      greenlanco_internal: { aliases: ['ishan-demo-app'] }
+    depends_on:
+      api: { condition: service_healthy }
+
+  # Loads the fictional data once the API is up, then again at the start of every hour.
+  reset:
+    build: { context: .., dockerfile: apps/api/Dockerfile, target: runner }
+    command:
+      - sh
+      - -c
+      - |
+        while true; do
+          node dist/modules/demo/reset-cli.js || echo "demo reset failed, retrying next hour"
+          sleep $$((3600 - $$(date +%s) % 3600))
+        done
+    environment:
+      <<: *api-env
+    restart: unless-stopped
+    depends_on:
+      api: { condition: service_healthy }
+
+networks:
+  greenlanco_internal:
+    external: true
+
+volumes:
+  demo-pgdata:

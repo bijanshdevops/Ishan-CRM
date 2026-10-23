@@ -1,13 +1,53 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { LoginRequestSchema } from '@ishan/contracts';
 import { fa } from '@ishan/i18n';
 import { Button, Card, ErrorBanner, Field, Input } from '@/components/ui';
 import { ApiClientError, api } from '@/lib/api';
+import { IS_DEMO, withBase } from '@/lib/base-path';
+
+/** The public demo has no sign-in form: visitors enter as the restricted demo user. */
+function DemoEntry() {
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    setFailed(false);
+    api('/demo/session', { method: 'POST' })
+      .then(() => {
+        if (!cancelled) window.location.assign(withBase('/'));
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [attempt]);
+  return (
+    <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-6 p-6 text-center">
+      <h1 className="text-3xl font-bold text-[var(--color-brand)]">{fa.app.name}</h1>
+      {failed ? (
+        <>
+          <ErrorBanner message={fa.demo.failed} />
+          <Button onClick={() => setAttempt((n) => n + 1)}>{fa.demo.retry}</Button>
+        </>
+      ) : (
+        <p role="status" className="text-[var(--color-text-muted)]">
+          {fa.demo.entering}
+        </p>
+      )}
+    </main>
+  );
+}
 
 export default function LoginPage() {
+  return IS_DEMO ? <DemoEntry /> : <SignInForm />;
+}
+
+function SignInForm() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -35,7 +75,7 @@ export default function LoginPage() {
         body: parsed.data,
       });
       if (res.status === 'mfa_required') setNeedsTotp(true);
-      else window.location.assign('/');
+      else window.location.assign(withBase('/'));
     } catch (err) {
       setError(
         err instanceof ApiClientError && err.status === 429 ? fa.login.tooMany : fa.login.invalid,
