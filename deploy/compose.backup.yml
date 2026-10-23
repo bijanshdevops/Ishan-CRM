@@ -10,7 +10,8 @@ services:
       PGUSER: ishan
       PGPASSWORD: ishan # DEV-ONLY; use a dedicated read-only backup role and a real secret in production
       PGDATABASE: ishan
-      BACKUP_INTERVAL_SECONDS: '86400'
+      BACKUP_INTERVAL_SECONDS: '3600' # hourly: RPO up to 1 hour (ADR 0025)
+      HOURLY_KEEP_DAYS: '2' # every backup of the last 2 days; older ones thin to one per day
       RETENTION_DAYS: '14'
       MIN_KEEP: '3'
       # To encrypt at rest, mount a secret file and set: BACKUP_PASSPHRASE_FILE: /run/secrets/backup_passphrase

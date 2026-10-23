@@ -4,6 +4,7 @@
 # Connection: standard libpq variables (PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE).
 # Settings:
 #   BACKUP_DIR              where backups go (default /backups)
+#   HOURLY_KEEP_DAYS        keep every backup of the last N days (default 2); older ones thin out to one per day
 #   RETENTION_DAYS          delete backups older than this many days (default 14)
 #   MIN_KEEP                never prune below this many newest backups (default 3)
 #   BACKUP_PASSPHRASE_FILE  optional; encrypts the dump with AES-256 (openssl, PBKDF2)
@@ -14,11 +15,12 @@ umask 077
 : "${PGUSER:?PGUSER is required}"
 : "${PGDATABASE:?PGDATABASE is required}"
 BACKUP_DIR="${BACKUP_DIR:-/backups}"
+HOURLY_KEEP_DAYS="${HOURLY_KEEP_DAYS:-2}"
 RETENTION_DAYS="${RETENTION_DAYS:-14}"
 MIN_KEEP="${MIN_KEEP:-3}"
 
-case "$RETENTION_DAYS$MIN_KEEP" in
-  *[!0-9]*) echo "backup: RETENTION_DAYS and MIN_KEEP must be whole numbers" >&2; exit 2 ;;
+case "$HOURLY_KEEP_DAYS$RETENTION_DAYS$MIN_KEEP" in
+  *[!0-9]*) echo "backup: HOURLY_KEEP_DAYS, RETENTION_DAYS and MIN_KEEP must be whole numbers" >&2; exit 2 ;;
 esac
 if [ -n "${BACKUP_PASSPHRASE_FILE:-}" ] && [ ! -s "$BACKUP_PASSPHRASE_FILE" ]; then
   echo "backup: BACKUP_PASSPHRASE_FILE is set but missing or empty" >&2
@@ -65,14 +67,35 @@ mv "$work/$final.sha256" "$BACKUP_DIR/$final.sha256"
 size="$(wc -c < "$BACKUP_DIR/$final" | tr -d ' ')"
 echo "backup: ok file=$final bytes=$size tables_with_data=$entries encrypted=$([ "$final" != "$name" ] && echo yes || echo no)"
 
-# 6. Retention: delete files older than RETENTION_DAYS, but always keep the MIN_KEEP newest, so a
-#    stalled scheduler or a wrong clock can never prune the last good backups.
+# 6. Retention (tiered). Newest first, a file is:
+#    - always kept if it is one of the MIN_KEEP newest, so a stalled scheduler or a wrong clock can
+#      never prune the last good backups;
+#    - deleted when older than RETENTION_DAYS;
+#    - kept when younger than HOURLY_KEEP_DAYS (every backup of the recent window);
+#    - otherwise kept only if it is the newest backup of its UTC day (the day is read from the file name).
 pruned=0
+rank=0
+seen_days=" "
+hourly_minutes=$((HOURLY_KEEP_DAYS * 1440))
 # shellcheck disable=SC2012
-for f in $(ls -1t "$BACKUP_DIR" | grep -E '\.dump(\.enc)?$' | tail -n +"$((MIN_KEEP + 1))"); do
-  if [ -n "$(find "$BACKUP_DIR/$f" -mtime +"$RETENTION_DAYS" 2>/dev/null)" ]; then
-    rm -f "$BACKUP_DIR/$f" "$BACKUP_DIR/$f.sha256"
+for f in $(ls -1t "$BACKUP_DIR" | grep -E '\.dump(\.enc)?$'); do
+  rank=$((rank + 1))
+  [ "$rank" -le "$MIN_KEEP" ] && continue
+  path="$BACKUP_DIR/$f"
+  if [ -n "$(find "$path" -mtime +"$RETENTION_DAYS" 2>/dev/null)" ]; then
+    drop=yes
+  elif [ -n "$(find "$path" -mmin -"$hourly_minutes" 2>/dev/null)" ]; then
+    drop=no
+  else
+    day="$(echo "$f" | sed -n -E 's/.*-([0-9]{8})T[0-9]{6}Z\.dump.*/\1/p')"
+    case "$seen_days" in
+      *" $day "*) drop=yes ;;
+      *) drop=no; seen_days="$seen_days$day " ;;
+    esac
+  fi
+  if [ "$drop" = yes ]; then
+    rm -f "$path" "$path.sha256"
     pruned=$((pruned + 1))
   fi
 done
-echo "backup: pruned=$pruned retention_days=$RETENTION_DAYS min_keep=$MIN_KEEP"
+echo "backup: pruned=$pruned hourly_keep_days=$HOURLY_KEEP_DAYS retention_days=$RETENTION_DAYS min_keep=$MIN_KEEP"
