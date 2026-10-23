@@ -6,8 +6,8 @@ export const DEMO_USER_NAME = 'کاربر دمو';
 
 /**
  * What a visitor of the public demo may do: everything about customers, sales and teams, nothing about the system
- * itself. Missing on purpose: users, roles, audit, webhooks, campaign sending, imports/exports (bulk data
- * leaving or entering), pipeline configuration.
+ * itself. Missing on purpose: user and role management, audit (visitor IPs), webhooks and campaign sending
+ * (outbound traffic), pipeline configuration (shared by every visitor and not reset).
  */
 export const DEMO_PERMISSIONS: Permission[] = [
   PERMISSIONS.TEAMS_READ,
@@ -17,6 +17,8 @@ export const DEMO_PERMISSIONS: Permission[] = [
   PERMISSIONS.CUSTOMERS_READ,
   PERMISSIONS.CUSTOMERS_WRITE,
   PERMISSIONS.CUSTOMERS_DELETE,
+  PERMISSIONS.CUSTOMERS_IMPORT,
+  PERMISSIONS.CUSTOMERS_EXPORT,
   PERMISSIONS.TAGS_WRITE,
   PERMISSIONS.LEADS_READ,
   PERMISSIONS.LEADS_WRITE,
@@ -29,6 +31,7 @@ export const DEMO_PERMISSIONS: Permission[] = [
   PERMISSIONS.ACTIVITIES_DELETE,
   PERMISSIONS.ACTIVITIES_MANAGE_ALL,
   PERMISSIONS.REPORTS_READ,
+  PERMISSIONS.REPORTS_EXPORT,
   PERMISSIONS.PRODUCTS_READ,
   PERMISSIONS.PRODUCTS_WRITE,
   PERMISSIONS.QUOTES_READ,
@@ -38,7 +41,11 @@ export const DEMO_PERMISSIONS: Permission[] = [
   PERMISSIONS.CONTRACTS_WRITE,
   PERMISSIONS.CAMPAIGNS_READ,
   PERMISSIONS.CAMPAIGNS_WRITE,
+  PERMISSIONS.CAMPAIGNS_DELETE,
   PERMISSIONS.WORKFLOWS_READ,
+  // Workflow actions are internal only (notify, create_task): nothing leaves the demo.
+  PERMISSIONS.WORKFLOWS_WRITE,
+  PERMISSIONS.WORKFLOWS_DELETE,
 ];
 
 /** Tables holding visitor-editable business data; emptied by every reset. Users, roles and sessions stay. */
@@ -59,6 +66,7 @@ export const DEMO_RESET_TABLES = [
   'leads',
   'campaign_recipients',
   'campaign_sendings',
+  'lead_sources',
   'campaigns',
   'customers',
   'notifications',

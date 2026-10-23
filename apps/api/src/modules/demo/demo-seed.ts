@@ -1,4 +1,4 @@
-import { normalizePhone, normalizeText } from '@ishan/contracts';
+import { DEFAULT_LEAD_SOURCES, normalizePhone, normalizeText } from '@ishan/contracts';
 import type { Prisma } from '../../generated/prisma/client';
 import { activitySearchText } from '../activities/mappers';
 import { contactSearchText, customerSearchText } from '../customers/mappers';
@@ -201,6 +201,10 @@ export async function seedDemoData(
   const now = Date.now();
   const owner = (i: number) => ctx.ownerIds[i % ctx.ownerIds.length];
 
+  // Lead sources are editable by visitors, so the reset restores the defaults.
+  await tx.leadSource.createMany({
+    data: DEFAULT_LEAD_SOURCES.map((name) => ({ organizationId: org, name })),
+  });
   const sources = await tx.leadSource.findMany({ where: { organizationId: org } });
   const sourceId = (name: string) => sources.find((s) => s.name === name)?.id ?? null;
   const stages = await tx.pipelineStage.findMany({ where: { organizationId: org } });
