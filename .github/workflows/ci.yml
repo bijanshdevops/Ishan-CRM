@@ -198,6 +198,33 @@ jobs:
           path: scan/*.json
           retention-days: 30
 
+  backup-restore:
+    name: backup-restore (pg_dump round trip)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start PostgreSQL, run the migrations and boot the API (creates real data)
+        run: docker compose -f deploy/compose.dev.yml -f deploy/compose.backup.yml up --build -d --wait --wait-timeout 420 api
+      - name: Build the backup image
+        run: docker compose -f deploy/compose.dev.yml -f deploy/compose.backup.yml build backup
+      - name: Backup -> verify -> restore into a new database -> compare (plus failure paths)
+        run: |
+          docker compose -f deploy/compose.dev.yml -f deploy/compose.backup.yml run --rm --no-deps \
+            -T --entrypoint selftest.sh backup
+      - name: Scheduled backup service produces a verified backup
+        run: |
+          docker compose -f deploy/compose.dev.yml -f deploy/compose.backup.yml up -d backup
+          for i in $(seq 1 30); do
+            docker compose -f deploy/compose.dev.yml -f deploy/compose.backup.yml exec -T backup healthcheck.sh && break
+            sleep 2
+          done
+          docker compose -f deploy/compose.dev.yml -f deploy/compose.backup.yml exec -T backup healthcheck.sh
+          docker compose -f deploy/compose.dev.yml -f deploy/compose.backup.yml exec -T backup ls -l /backups
+      - if: failure()
+        run: docker compose -f deploy/compose.dev.yml -f deploy/compose.backup.yml logs --no-color --tail=80
+      - if: always()
+        run: docker compose -f deploy/compose.dev.yml -f deploy/compose.backup.yml down -v
+
   e2e:
     name: e2e (docker compose + Playwright)
     runs-on: ubuntu-latest

@@ -1,0 +1,28 @@
+# Scheduled PostgreSQL backups (ADR 0025). Use as an overlay:
+#   docker compose -f deploy/compose.dev.yml -f deploy/compose.backup.yml up -d --build backup
+# Restore: docs/backup-restore.md
+services:
+  backup:
+    build: { context: .., dockerfile: deploy/backup/Dockerfile }
+    restart: unless-stopped
+    environment:
+      PGHOST: postgres
+      PGUSER: ishan
+      PGPASSWORD: ishan # DEV-ONLY; use a dedicated read-only backup role and a real secret in production
+      PGDATABASE: ishan
+      BACKUP_INTERVAL_SECONDS: '86400'
+      RETENTION_DAYS: '14'
+      MIN_KEEP: '3'
+      # To encrypt at rest, mount a secret file and set: BACKUP_PASSPHRASE_FILE: /run/secrets/backup_passphrase
+    volumes: ['backups:/backups']
+    healthcheck:
+      test: ['CMD', 'healthcheck.sh']
+      interval: 5m
+      timeout: 10s
+      retries: 1
+      start_period: 5m
+    depends_on:
+      postgres: { condition: service_healthy }
+
+volumes:
+  backups:
