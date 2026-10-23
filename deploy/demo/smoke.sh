@@ -39,7 +39,7 @@ role="$(get "$API/auth/me" | jq -r .role.key)"
 [ "$role" = demo ] || fail "visitor has role '$role', expected the restricted demo role"
 ok "visitor runs as the restricted demo role"
 
-for path in users roles audit webhooks; do
+for path in users roles audit-logs webhooks; do
   [ "$(code -b "$JAR" "$API/$path")" = 403 ] || fail "$path is reachable by the demo visitor"
 done
 ok "user, role, audit and webhook management are closed"
