@@ -48,6 +48,19 @@ docker compose -f deploy/compose.dev.yml -f deploy/compose.backup.yml run --rm -
 `<نام>_selftest_restored` را می‌سازد و حذف می‌کند). در CI با کار `backup-restore` هر بار اجرا می‌شود. توصیه:
 ماهی یک بار بازیابی واقعی یک پشتیبان بیرونی را در محیط جدا تمرین کنید و زمانش را ثبت کنید (RTO).
 
+## تمرین بازیابی و سنجش RTO
+
+`rto-drill.sh` روی یک دیتابیس (ترجیحاً کپی production) پشتیبان و بازیابی واقعی می‌گیرد، زمان هر مرحله را چاپ می‌کند و
+دیتابیس موقت `<نام>_rto_drill` را حذف می‌کند:
+
+```bash
+PGHOST=… PGUSER=… PGPASSWORD=… PGDATABASE=ishan deploy/backup/rto-drill.sh
+```
+
+برای ساخت داده‌ی مصنوعی در حجم‌های بزرگ (فقط روی دیتابیس‌های با نام `*_loadtest`، هرگز production):
+`psql -v n=100000 -d ishan_loadtest -f deploy/backup/loadtest-seed.sql`. نتایج اندازه‌گیری‌شده در ADR 0025 آمده است
+(۱ گیگ ≈ ۳۲ ثانیه، ۳٫۲ گیگ ≈ ۷۹ ثانیه بازیابی روی ۲ vCPU).
+
 ## عیب‌یابی
 
 | نشانه                             | معنی و اقدام                                                                         |
