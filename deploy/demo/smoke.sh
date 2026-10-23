@@ -24,7 +24,7 @@ ok "assets are served under /demo"
 ok "no data without a session"
 
 i=0; while :; do
-  r="$(curl -s -w '\n%{http_code}' -b "$JAR" -c "$JAR" -H "Origin: $ORIGIN" -H 'Content-Type: application/json' -X POST "$API/demo/session")"
+  r="$(curl -s -w '\n%{http_code}' -b "$JAR" -c "$JAR" -H "Origin: $ORIGIN" -H 'Content-Type: application/json' -X POST -d '{}' "$API/demo/session")"
   # Right after start the reset may not have created the demo user yet: retry until the data shows up.
   if [ "$(printf '%s' "$r" | tail -n 1)" != 200 ]; then
     i=$((i+1)); [ $i -lt 60 ] || fail "auto-login failed: $r"; sleep 3; continue
@@ -46,7 +46,7 @@ ok "user, role, audit and webhook management are closed"
 [ "$(code -b "$JAR" -H "Origin: $ORIGIN" -H 'Content-Type: application/json' -X POST -d '{"url":"https://example.com/h","events":["customer.created"]}' "$API/webhooks")" = 403 ] || fail "a webhook could be created"
 r="$(post -d '{"currentPassword":"x","newPassword":"Another-Passw0rd-123"}' "$API/auth/change-password")"
 echo "$r" | grep -q DEMO_RESTRICTED || fail "the shared account's password could be changed: $r"
-[ "$(code -b "$JAR" -H "Origin: $ORIGIN" -H 'Content-Type: application/json' -X POST "$API/auth/mfa/setup")" = 403 ] || fail "MFA could be set up on the shared account"
+[ "$(code -b "$JAR" -H "Origin: $ORIGIN" -H 'Content-Type: application/json' -X POST -d '{}' "$API/auth/mfa/setup")" = 403 ] || fail "MFA could be set up on the shared account"
 ok "credentials of the shared account cannot be changed"
 
 # Free writing, then the hourly reset puts the data back.
