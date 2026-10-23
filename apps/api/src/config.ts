@@ -77,6 +77,14 @@ const EnvSchema = z.object({
     .enum(['true', 'false'])
     .default('false')
     .transform((v) => v === 'true'),
+  /**
+   * Public live demo (ADR 0026): enables the auto-login endpoint and the fictional seed. Only allowed against a
+   * database whose name ends in `_demo`, with e-mail sending off, so it can never touch real data.
+   */
+  DEMO_MODE: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
   APP_VERSION: z.string().default('0.1.0'),
   /** Base64-encoded 32-byte key (AES-256-GCM) for secrets at rest, e.g. TOTP seeds. */
   ENCRYPTION_KEY: z
@@ -128,6 +136,38 @@ const checked = EnvSchema.superRefine((c, ctx) => {
         code: 'custom',
         path: ['TRUST_PROXY'],
         message: 'is required in production (true, false, hop count or CIDR list)',
+      });
+    }
+  }
+  if (c.DEMO_MODE) {
+    let dbName = '';
+    try {
+      dbName = new URL(c.DATABASE_URL).pathname.replace(/^\//, '');
+    } catch {
+      /* reported below */
+    }
+    if (!dbName.endsWith('_demo')) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['DEMO_MODE'],
+        message: 'requires a database whose name ends with _demo',
+      });
+    }
+    if (c.SMTP_HOST) {
+      ctx.addIssue({ code: 'custom', path: ['SMTP_HOST'], message: 'must be unset in DEMO_MODE' });
+    }
+    if (c.ALLOW_DEV_SECRETS) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['ALLOW_DEV_SECRETS'],
+        message: 'must be false in DEMO_MODE (the demo is public: use real random secrets)',
+      });
+    }
+    if (c.NODE_ENV !== 'production') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['NODE_ENV'],
+        message: 'must be production in DEMO_MODE',
       });
     }
   }

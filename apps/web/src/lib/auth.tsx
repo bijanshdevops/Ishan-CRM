@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createContext, useCallback, useContext, type ReactNode } from 'react';
 import type { SessionUserDto } from '@ishan/contracts';
 import { ApiClientError, api } from './api';
+import { withBase } from './base-path';
 
 interface AuthState {
   user: SessionUserDto | null;
@@ -36,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     await api('/auth/logout', { method: 'POST' }).catch(() => undefined);
     qc.clear();
-    window.location.assign('/login');
+    window.location.assign(withBase('/login'));
   }, [qc]);
   return (
     <AuthContext.Provider value={{ user, loading: isLoading, can, refresh, logout }}>

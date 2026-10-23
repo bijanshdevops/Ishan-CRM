@@ -10,8 +10,12 @@ const securityHeaders = [
 /** Same-origin proxy to the API so the session cookie is first-party and no CORS is needed. */
 const API_INTERNAL_URL = process.env.API_INTERNAL_URL ?? 'http://localhost:4000';
 
+/** The public demo is served under /demo (build-time, see deploy/compose.demo.yml). */
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || undefined;
+
 const nextConfig: NextConfig = {
   output: 'standalone',
+  basePath: BASE_PATH,
   poweredByHeader: false,
   transpilePackages: ['@ishan/ui', '@ishan/i18n'],
   async headers() {

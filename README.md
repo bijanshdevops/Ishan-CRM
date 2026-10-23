@@ -23,6 +23,8 @@ pnpm dev                                      # web: :3000 ، api: :4000
 
 پشتیبان‌گیری و بازیابی PostgreSQL: [`docs/backup-restore.md`](docs/backup-restore.md) (ADR 0025).
 
+دموی زنده‌ی عمومی (استک جدا، ورود خودکار با نقش محدود، بازنشانی ساعتی): [`docs/demo.md`](docs/demo.md) (ADR 0026).
+
 - سلامت API: `GET /api/v1/health/live` و `GET /api/v1/health/ready`
 - مستندات OpenAPI (فقط خارج از production): `/api/docs`
 

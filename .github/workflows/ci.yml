@@ -279,3 +279,43 @@ jobs:
           exit $code
       - if: always()
         run: docker compose -f deploy/compose.dev.yml down -v
+
+  demo-stack:
+    name: demo-stack (live demo)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare (secrets are random per run; the network normally comes from the website stack)
+        run: |
+          docker network create greenlanco_internal
+          printf 'DEMO_POSTGRES_PASSWORD=%s\nDEMO_ENCRYPTION_KEY=%s\n' "$(openssl rand -hex 24)" "$(openssl rand -base64 32)" > deploy/demo.env
+          # CI only: publish the web port and allow the cookie over plain http so the smoke test can use them.
+          printf 'services:\n  web:\n    ports: ["127.0.0.1:3100:3000"]\n  api:\n    environment:\n      COOKIE_SECURE: "false"\n' > deploy/compose.demo.ci.yml
+      - name: Start the demo stack
+        run: |
+          set +e
+          docker compose -f deploy/compose.demo.yml -f deploy/compose.demo.ci.yml --env-file deploy/demo.env up --build -d --wait --wait-timeout 480 > /tmp/up.log 2>&1
+          code=$?
+          tail -30 /tmp/up.log
+          if [ $code -ne 0 ]; then
+            { echo '### demo stack failed to start'; echo '```'; sed 's/\x1b\[[0-9;]*m//g' /tmp/up.log | tail -40; docker compose -f deploy/compose.demo.yml --env-file deploy/demo.env logs --no-color --tail=60 2>&1 | cut -c1-300 | tail -150; echo '```'; } > /tmp/body.md
+            gh api repos/${{ github.repository }}/commits/${{ github.sha }}/comments -F body=@/tmp/body.md > /dev/null
+          fi
+          exit $code
+      - name: Smoke test (auto-login, restricted role, free writes, reset)
+        run: |
+          set +e
+          sh deploy/demo/smoke.sh http://127.0.0.1:3100 2>&1 | tee /tmp/smoke.log
+          code=${PIPESTATUS[0]}
+          if [ $code -ne 0 ]; then
+            { echo '### demo smoke test failed'; echo '```'; tail -30 /tmp/smoke.log; echo '---api---'; docker compose -f deploy/compose.demo.yml --env-file deploy/demo.env logs --no-color --tail=40 api reset 2>&1 | cut -c1-300 | tail -80; echo '```'; } > /tmp/body.md
+            gh api repos/${{ github.repository }}/commits/${{ github.sha }}/comments -F body=@/tmp/body.md > /dev/null
+            echo "::error title=demo smoke::$(tail -8 /tmp/smoke.log | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g')"
+          fi
+          exit $code
+      - if: always()
+        run: docker compose -f deploy/compose.demo.yml -f deploy/compose.demo.ci.yml --env-file deploy/demo.env down -v

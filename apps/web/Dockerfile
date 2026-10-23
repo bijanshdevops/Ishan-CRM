@@ -16,6 +16,10 @@ COPY packages packages
 COPY apps/web apps/web
 ARG NEXT_PUBLIC_API_URL=/api/v1
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_BASE_PATH=
+ENV NEXT_PUBLIC_BASE_PATH=$NEXT_PUBLIC_BASE_PATH
+ARG NEXT_PUBLIC_DEMO=false
+ENV NEXT_PUBLIC_DEMO=$NEXT_PUBLIC_DEMO
 ARG API_INTERNAL_URL=http://api:4000
 ENV API_INTERNAL_URL=$API_INTERNAL_URL
 RUN pnpm --filter @ishan/contracts build && pnpm --filter @ishan/i18n build && pnpm --filter @ishan/web build

@@ -6,6 +6,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { PERMISSIONS } from '@ishan/contracts';
 import { fa } from '@ishan/i18n';
 import { useAuth } from '@/lib/auth';
+import { IS_DEMO } from '@/lib/base-path';
 import { ReminderBell } from './reminder-bell';
 import { Button, Skeleton } from './ui';
 
@@ -81,7 +82,19 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const items = NAV.filter((n) => !n.permission || can(n.permission));
   return (
-    <div className="min-h-dvh md:grid md:grid-cols-[16rem_1fr] print:block">
+    <div
+      className={`min-h-dvh md:grid md:grid-cols-[16rem_1fr] print:block ${
+        IS_DEMO ? 'md:grid-rows-[auto_1fr]' : ''
+      }`}
+    >
+      {IS_DEMO ? (
+        <p
+          role="note"
+          className="print:hidden bg-[var(--color-brand)] px-4 py-2 text-center text-sm text-[var(--color-brand-contrast)] md:col-span-2"
+        >
+          {fa.demo.banner}
+        </p>
+      ) : null}
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-[var(--color-surface)] focus:p-3"
