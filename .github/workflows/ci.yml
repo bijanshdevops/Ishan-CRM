@@ -293,8 +293,8 @@ jobs:
         run: |
           docker network create greenlanco_internal
           printf 'DEMO_POSTGRES_PASSWORD=%s\nDEMO_ENCRYPTION_KEY=%s\n' "$(openssl rand -hex 24)" "$(openssl rand -base64 32)" > deploy/demo.env
-          # CI only: publish the web port so the smoke test can reach it.
-          printf 'services:\n  web:\n    ports: ["127.0.0.1:3100:3000"]\n' > deploy/compose.demo.ci.yml
+          # CI only: publish the web port and allow the cookie over plain http so the smoke test can use them.
+          printf 'services:\n  web:\n    ports: ["127.0.0.1:3100:3000"]\n  api:\n    environment:\n      COOKIE_SECURE: "false"\n' > deploy/compose.demo.ci.yml
       - name: Start the demo stack
         run: |
           set +e

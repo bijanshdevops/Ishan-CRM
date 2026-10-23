@@ -24,7 +24,11 @@ ok "assets are served under /demo"
 ok "no data without a session"
 
 i=0; while :; do
-  [ "$(code -b "$JAR" -c "$JAR" -H "Origin: $ORIGIN" -H 'Content-Type: application/json' -X POST "$API/demo/session")" = 200 ] || fail "auto-login failed"
+  r="$(curl -s -w '\n%{http_code}' -b "$JAR" -c "$JAR" -H "Origin: $ORIGIN" -H 'Content-Type: application/json' -X POST "$API/demo/session")"
+  # Right after start the reset may not have created the demo user yet: retry until the data shows up.
+  if [ "$(printf '%s' "$r" | tail -n 1)" != 200 ]; then
+    i=$((i+1)); [ $i -lt 60 ] || fail "auto-login failed: $r"; sleep 3; continue
+  fi
   n="$(get "$API/customers?limit=50" | jq '.items | length')"
   [ "$n" -gt 0 ] && break
   i=$((i+1)); [ $i -lt 60 ] || fail "the demo data was never loaded"; sleep 3
