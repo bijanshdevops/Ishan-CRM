@@ -458,19 +458,18 @@ export async function seedDemoData(
     ['پشتیبانی مشتریان', 'پاسخ‌گویی و پیگیری پس از فروش', [2, 0]],
   ];
   for (const [name, description, members] of TEAMS) {
+    const lead = owner(members[0]!)!;
+    const userIds = [...new Set([lead, ...members.slice(1).map((m) => owner(m)!), ctx.demoUserId])];
     await tx.team.create({
       data: {
         organizationId: org,
         name,
         description,
         members: {
-          create: [
-            { userId: ctx.demoUserId, role: 'MEMBER' as const },
-            ...members.map((m, k) => ({
-              userId: owner(m),
-              role: k === 0 ? ('LEAD' as const) : ('MEMBER' as const),
-            })),
-          ].filter((m, i, all) => all.findIndex((x) => x.userId === m.userId) === i),
+          create: userIds.map((userId) => ({
+            userId,
+            role: userId === lead ? ('LEAD' as const) : ('MEMBER' as const),
+          })),
         },
       },
     });
