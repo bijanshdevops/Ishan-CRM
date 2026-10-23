@@ -2,6 +2,8 @@ import { DEFAULT_LEAD_SOURCES, normalizePhone, normalizeText } from '@ishan/cont
 import type { Prisma } from '../../generated/prisma/client';
 import { activitySearchText } from '../activities/mappers';
 import { contactSearchText, customerSearchText } from '../customers/mappers';
+import { campaignSearchText } from '../marketing/mappers';
+import { contractNumber, quoteNumber } from '../quotes/mappers';
 import { leadSearchText } from '../sales/mappers';
 
 /** Everything below is fictional: invented names, `.invalid` e-mail domains, 0900-style placeholder numbers. */
@@ -255,6 +257,42 @@ export async function seedDemoData(
     contactIds.set(c.key, contact.id);
   }
 
+  const CAMPAIGNS: Array<
+    [
+      name: string,
+      channel: string,
+      status: 'PLANNED' | 'ACTIVE' | 'COMPLETED',
+      startAgo: number,
+      endIn: number,
+      toman: number,
+      notes: string,
+    ]
+  > = [
+    ['کمپین نمایشگاه فناوری', 'نمایشگاه', 'COMPLETED', 60, -20, 120_000_000, 'غرفه و معرفی محصول'],
+    ['کمپین پیامک بهاره', 'پیامک', 'ACTIVE', 15, 15, 30_000_000, 'معرفی نسخه جدید به مشتریان'],
+    ['وبینار معرفی ایشان', 'وبینار', 'ACTIVE', 7, 7, 10_000_000, 'آموزش و پاسخ به پرسش‌ها'],
+    ['کمپین معرفی مشتری', 'ارجاع', 'PLANNED', -10, 40, 15_000_000, 'پاداش برای معرفی مشتری'],
+  ];
+  const campaignIds: string[] = [];
+  for (const [i, [name, channel, status, startAgo, endIn, toman, notes]] of CAMPAIGNS.entries()) {
+    const c = await tx.campaign.create({
+      data: {
+        organizationId: org,
+        name,
+        channel,
+        status,
+        startDate: new Date(now - startAgo * DAY),
+        endDate: new Date(now + endIn * DAY),
+        budget: rial(toman),
+        ownerId: owner(i),
+        createdById: ctx.demoUserId,
+        notes,
+        searchText: campaignSearchText({ name, channel, notes }),
+      },
+    });
+    campaignIds.push(c.id);
+  }
+
   for (const [i, [name, company, status, source]] of LEADS.entries()) {
     const phone = `0900000${String(100 + i)}`;
     await tx.lead.create({
@@ -266,6 +304,7 @@ export async function seedDemoData(
         email: `lead${i + 1}@example.invalid`,
         status,
         sourceId: sourceId(source),
+        campaignId: i % 4 === 3 ? null : (campaignIds[i % 3] ?? null),
         ownerId: owner(i),
         createdById: ctx.demoUserId,
         disqualifyReason: status === 'DISQUALIFIED' ? 'بودجه ندارد' : null,
@@ -410,6 +449,7 @@ export async function seedDemoData(
       ],
     ],
   ];
+  const accepted: Array<{ id: string; seq: number; title: string; ck: string; total: bigint }> = [];
   for (const [i, [title, ck, status, lines]] of QUOTES.entries()) {
     const seq = i + 1;
     const items = lines.map(([pi, qty], position) => {
@@ -426,7 +466,7 @@ export async function seedDemoData(
     const subtotal = items.reduce((s, it) => s + it.lineTotal, 0n);
     const taxAmount = (subtotal * 1000n) / 10_000n;
     const issued = new Date(now - (14 - i * 2) * DAY);
-    await tx.quote.create({
+    const createdQuote = await tx.quote.create({
       data: {
         organizationId: org,
         seq,
@@ -482,5 +522,108 @@ export async function seedDemoData(
     where: { organizationId_kind: { organizationId: org, kind: 'quote' } },
     create: { organizationId: org, kind: 'quote', value: QUOTES.length },
     update: { value: QUOTES.length },
+  });
+
+  // Contracts come from accepted quotes (one per quote), like in the product.
+  for (const [i, q] of accepted.entries()) {
+    const seq = i + 1;
+    const customerName = CUSTOMERS.find((c) => c.key === q.ck)!.name;
+    await tx.contract.create({
+      data: {
+        organizationId: org,
+        seq,
+        title: q.title.replace('پیش‌فاکتور', 'قرارداد'),
+        status: i === 0 ? 'ACTIVE' : 'DRAFT',
+        customerId: customerIds.get(q.ck)!,
+        quoteId: q.id,
+        amount: q.total,
+        startDate: new Date(now - 5 * DAY),
+        endDate: new Date(now + (i === 0 ? 25 : 360) * DAY),
+        terms: 'پرداخت در سه مرحله؛ پشتیبانی یک‌ساله شامل است.',
+        signedAt: i === 0 ? new Date(now - 4 * DAY) : null,
+        createdById: ctx.demoUserId,
+        searchText: normalizeText(
+          `${contractNumber(seq)} ${quoteNumber(q.seq)} ${q.title} ${customerName}`,
+        ),
+      },
+    });
+  }
+  await tx.documentCounter.upsert({
+    where: { organizationId_kind: { organizationId: org, kind: 'contract' } },
+    create: { organizationId: org, kind: 'contract', value: accepted.length },
+    update: { value: accepted.length },
+  });
+
+  const TAGS: Array<[name: string, color: string, customerKeys: string[]]> = [
+    ['مشتری ویژه', '#b45309', ['c1', 'c4']],
+    ['در حال مذاکره', '#2563eb', ['c2', 'c7', 'c8']],
+    ['نیازمند پیگیری', '#dc2626', ['c3', 'c5']],
+  ];
+  for (const [name, color, keys] of TAGS) {
+    const tag = await tx.tag.create({ data: { organizationId: org, name, color } });
+    await tx.customerTag.createMany({
+      data: keys
+        .filter((k) => customerIds.has(k))
+        .map((k) => ({ customerId: customerIds.get(k)!, tagId: tag.id })),
+    });
+  }
+
+  // Internal-only automations (notify / create_task); they are what the visitor can switch on.
+  const WORKFLOWS = [
+    {
+      name: 'اعلان پذیرش پیش‌فاکتور',
+      description: 'وقتی مشتری پیش‌فاکتور را می‌پذیرد، مسئول آن مطلع می‌شود.',
+      triggerType: 'quote.accepted',
+      conditions: [],
+      actions: [
+        {
+          type: 'notify',
+          to: 'owner',
+          title: 'پیش‌فاکتور {{number}} پذیرفته شد',
+          body: '{{title}}',
+        },
+      ],
+      enabled: true,
+    },
+    {
+      name: 'پیگیری سرنخ تازه',
+      description: 'برای هر سرنخ جدید یک وظیفهٔ پیگیری ساخته می‌شود.',
+      triggerType: 'lead.created',
+      conditions: [],
+      actions: [
+        {
+          type: 'create_task',
+          title: 'تماس با {{name}}',
+          dueInDays: 1,
+          priority: 'HIGH',
+          assignee: 'owner',
+        },
+      ],
+      enabled: false,
+    },
+  ];
+  for (const w of WORKFLOWS) {
+    await tx.workflow.create({
+      data: { organizationId: org, createdById: ctx.demoUserId, ...w },
+    });
+  }
+
+  await tx.notification.createMany({
+    data: [
+      {
+        userId: ctx.demoUserId,
+        type: 'system',
+        title: 'به نسخهٔ نمایشی ایشان خوش آمدید',
+        body: 'همهٔ داده‌ها فرضی است و هر ساعت به حالت اول برمی‌گردد.',
+        createdAt: new Date(now - 60_000),
+      },
+      {
+        userId: ctx.demoUserId,
+        type: 'workflow',
+        title: 'پیش‌فاکتور QT-000003 پذیرفته شد',
+        body: 'پیش‌فاکتور مجوز دفتر مهندسی',
+        createdAt: new Date(now - 2 * 3_600_000),
+      },
+    ],
   });
 }

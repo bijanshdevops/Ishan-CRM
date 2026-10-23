@@ -35,6 +35,10 @@ i=0; while :; do
 done
 ok "auto-login works and the fictional data is loaded ($n customers)"
 get "$API/teams" | jq -e 'length >= 3' >/dev/null || fail "the fictional teams are not loaded"
+for path in campaigns contracts tags workflows; do
+  get "$API/$path" | jq -e '(if type=="array" then . else .items end) | length >= 1' >/dev/null || fail "no fictional $path are loaded"
+done
+ok "campaigns, contracts, tags and workflows are loaded"
 
 role="$(get "$API/auth/me" | jq -r .role.key)"
 [ "$role" = demo ] || fail "visitor has role '$role', expected the restricted demo role"
