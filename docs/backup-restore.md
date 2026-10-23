@@ -8,10 +8,10 @@
 docker compose -f deploy/compose.dev.yml -f deploy/compose.backup.yml up -d --build backup
 ```
 
-اولین پشتیبان بلافاصله ساخته می‌شود و بعد هر ۲۴ ساعت. فایل‌ها در ولوم `backups` (مسیر `/backups`) هستند:
+اولین پشتیبان بلافاصله ساخته می‌شود و بعد **هر ساعت** (RPO تا ۱ ساعت؛ تصمیم و دلیلش در ADR 0025). فایل‌ها در ولوم `backups` (مسیر `/backups`) هستند:
 `ishan-<UTC>.dump` (یا `.dump.enc`) و کنار آن `.sha256`.
 
-متغیرها: `BACKUP_INTERVAL_SECONDS`، `RETENTION_DAYS`، `MIN_KEEP`، `BACKUP_PASSPHRASE_FILE` (برای رمزنگاری).
+متغیرها: `BACKUP_INTERVAL_SECONDS`، `HOURLY_KEEP_DAYS` (همهٔ پشتیبان‌های این چند روز اخیر؛ قدیمی‌تر: یکی در روز)، `RETENTION_DAYS`، `MIN_KEEP`، `BACKUP_PASSPHRASE_FILE` (برای رمزنگاری).
 برای رمزنگاری گذرواژه را در یک فایل secret قرار دهید و مسیرش را بدهید؛ **گذرواژه را جدا از پشتیبان نگه دارید.
 بدون آن بازیابی ناممکن است.**
 
@@ -22,6 +22,8 @@ docker compose -f deploy/compose.dev.yml -f deploy/compose.backup.yml run --rm -
 ```
 
 ## بازیابی
+
+فایل‌ها فرمت سفارشی `pg_dump` هستند، نه SQL متنی؛ با `psql` یا DBeaver خوانده نمی‌شوند. فقط با `restore.sh` (یا `pg_restore`) بازیابی کنید.
 
 ۱. فایل را از ولوم (یا نسخه‌ی بیرونی) بردارید. ۲. اول در یک دیتابیس **جدید** بازیابی و بررسی کنید:
 

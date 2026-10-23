@@ -75,22 +75,38 @@ if BACKUP_PASSPHRASE_FILE="$DIR/wrong" "$HERE/restore.sh" "$enc" "${RESTORED}_x"
 BACKUP_PASSPHRASE_FILE="$DIR/pass" "$HERE/restore.sh" "$enc" "$RESTORED" --replace --confirm "$RESTORED" >/dev/null
 [ "$(psql -XAtq -d "$RESTORED" -c 'SELECT count(*) FROM backup_selftest')" = 1 ] || fail "encrypted restore lost the marker row"
 
-step "5/6 retention prunes old backups but always keeps the newest ones"
-for d in 2020-01-01 2020-01-02 2020-01-03 2020-01-04; do
-  : > "$BACKUP_DIR/old-$d.dump"; : > "$BACKUP_DIR/old-$d.dump.sha256"
-  touch -d "$d 00:00:00" "$BACKUP_DIR/old-$d.dump" "$BACKUP_DIR/old-$d.dump.sha256"
-done
+step "5/6 tiered retention: recent backups all kept, older ones thin to one per day, expired ones go"
+# Fake backups named and dated like real ones, relative to now: stamp N days ago at hour H.
+now_s="$(date +%s)"
+fake() { # fake DAYS_AGO HOUR
+  ts=$((now_s - $1 * 86400))
+  day="$(date -u -d "@$ts" +%Y%m%d)"
+  name="$SRC-${day}T$(printf '%02d' "$2")0000Z.dump"
+  : > "$BACKUP_DIR/$name"; : > "$BACKUP_DIR/$name.sha256"
+  touch -d "$(date -u -d "@$ts" '+%Y-%m-%d') $(printf '%02d' "$2"):00:00" "$BACKUP_DIR/$name" "$BACKUP_DIR/$name.sha256"
+  echo "$name"
+}
+rm -f "$BACKUP_DIR"/*
+r1a="$(fake 1 3)"; r1b="$(fake 1 15)"           # inside the hourly window: both kept
+d3a="$(fake 3 1)"; d3b="$(fake 3 13)"           # older, same day: only the newest survives
+d5="$(fake 5 7)"                                # older, its own day: kept
+x20a="$(fake 20 3)"; x20b="$(fake 20 4)"        # past RETENTION_DAYS: both removed
 sleep 1
-# Two real backups exist, this run adds a third, and four expired ones are present. MIN_KEEP=5 protects the newest five: the
-# three real ones and the two newest expired ones. The two oldest expired ones must go.
-RETENTION_DAYS=1 MIN_KEEP=5 "$HERE/backup.sh" >/dev/null
-for d in 2020-01-01 2020-01-02; do
-  [ ! -e "$BACKUP_DIR/old-$d.dump" ] && [ ! -e "$BACKUP_DIR/old-$d.dump.sha256" ] || fail "expired backup $d was kept"
+HOURLY_KEEP_DAYS=2 RETENTION_DAYS=14 MIN_KEEP=1 "$HERE/backup.sh" >/dev/null
+for kept in "$r1a" "$r1b" "$d3b" "$d5"; do
+  [ -e "$BACKUP_DIR/$kept" ] || fail "retention removed $kept, which it must keep"
 done
-for d in 2020-01-03 2020-01-04; do
-  [ -e "$BACKUP_DIR/old-$d.dump" ] || fail "MIN_KEEP did not protect the expired backup $d"
+for gone in "$d3a" "$x20a" "$x20b"; do
+  [ ! -e "$BACKUP_DIR/$gone" ] && [ ! -e "$BACKUP_DIR/$gone.sha256" ] || fail "retention kept $gone, which it must remove"
 done
-[ "$(ls "$BACKUP_DIR"/ishan-*.dump "$BACKUP_DIR"/ishan-*.dump.enc | wc -l)" = 3 ] || fail "a real backup was pruned"
+[ "$(ls "$BACKUP_DIR"/"$SRC"-*.dump | wc -l)" = 5 ] || fail "unexpected number of backups after pruning"
+# The MIN_KEEP floor wins over age: even expired backups stay while they are among the newest.
+rm -f "$BACKUP_DIR"/*
+e1="$(fake 30 2)"; e2="$(fake 31 2)"; e3="$(fake 32 2)"
+sleep 1
+HOURLY_KEEP_DAYS=2 RETENTION_DAYS=14 MIN_KEEP=3 "$HERE/backup.sh" >/dev/null
+[ ! -e "$BACKUP_DIR/$e3" ] || fail "the oldest expired backup survived although three newer ones exist"
+[ -e "$BACKUP_DIR/$e1" ] && [ -e "$BACKUP_DIR/$e2" ] || fail "MIN_KEEP did not protect the newest expired backups"
 
 step "6/6 a backup of an unreachable database fails loudly and leaves no partial file"
 before="$(ls -A "$BACKUP_DIR" | wc -l)"
