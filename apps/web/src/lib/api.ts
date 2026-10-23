@@ -1,7 +1,13 @@
 import type { ApiError } from '@ishan/contracts';
 
 /** Base URL of the API as seen by the browser (same-origin proxy by default). */
-export function apiBaseUrl(env: Record<string, string | undefined> = process.env): string {
+export function apiBaseUrl(
+  // NEXT_PUBLIC_* values are inlined by the bundler only for the literal expression
+  // `process.env.NEXT_PUBLIC_X`; passing the whole `process.env` object stays empty in the browser.
+  env: Record<string, string | undefined> = {
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+  },
+): string {
   return (env.NEXT_PUBLIC_API_URL ?? '/api/v1').replace(/\/+$/, '');
 }
 
