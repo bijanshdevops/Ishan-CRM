@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { fa } from '@ishan/i18n';
+import { Logo } from '@/components/logo';
 import { Button, Card, ErrorBanner } from '@/components/ui';
 import { ApiClientError, api } from '@/lib/api';
 
@@ -43,7 +44,8 @@ export default function VerifyEmailPage() {
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-6 p-6">
-      <div className="text-center">
+      <div className="flex flex-col items-center gap-3 text-center">
+        <Logo size={64} />
         <h1 className="text-3xl font-bold text-[var(--color-brand)]">{fa.app.name}</h1>
       </div>
       <Card title={t.title}>
