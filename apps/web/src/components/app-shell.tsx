@@ -7,6 +7,7 @@ import { PERMISSIONS } from '@ishan/contracts';
 import { fa } from '@ishan/i18n';
 import { useAuth } from '@/lib/auth';
 import { IS_DEMO } from '@/lib/base-path';
+import { Logo } from './logo';
 import { ReminderBell } from './reminder-bell';
 import { Button, Skeleton } from './ui';
 
@@ -103,7 +104,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       </a>
       <aside className="print:hidden border-b border-[var(--color-border)] bg-[var(--color-surface)] p-4 md:border-b-0 md:border-e">
         <div className="mb-4 flex items-center justify-between md:mb-6">
-          <span className="text-xl font-bold text-[var(--color-brand)]">{fa.app.name}</span>
+          <span className="flex items-center gap-2 text-xl font-bold text-[var(--color-brand)]">
+            <Logo size={28} />
+            {fa.app.name}
+          </span>
           <div className="flex items-center">
             <ReminderBell />
             <Button variant="ghost" onClick={toggle} aria-label={fa.nav.theme}>
