@@ -18,6 +18,7 @@ import {
   gregorianToJalali,
 } from '@ishan/i18n';
 import { BarList, ChartCard, ColumnChart, StatTile, type ColumnPoint } from '@/components/charts';
+import { GettingStarted } from '@/components/getting-started';
 import { useToast } from '@/components/toast';
 import {
   Button,
@@ -191,6 +192,7 @@ export default function DashboardPage() {
         <div
           className={`flex flex-col gap-4 transition-opacity ${dash.isFetching ? 'opacity-70' : ''}`}
         >
+          <GettingStarted data={d} />
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {deals ? (
               <div className="sm:col-span-2 lg:col-span-3">
